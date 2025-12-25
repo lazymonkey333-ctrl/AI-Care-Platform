@@ -1,0 +1,13 @@
+flask
+waitress
+langchain
+langchain-community
+langchain-openai
+langchain-core
+langchain-text-splitters
+openai
+python-dotenv
+requests
+streamlit
+faiss-cpu
+pypdf
