@@ -102,17 +102,17 @@ with st.sidebar:
         if st.button('Show saved key in session'):
             st.write('Session key:', os.getenv('OPENAI_API_KEY'))
 
-    # KB upload
-    uploaded_file = st.file_uploader("Upload KB PDF", type=['pdf'], help="Upload a PDF to use as the knowledge base")
-    if uploaded_file is not None:
-        uploaded_kb_path = os.path.join(os.getcwd(), "uploaded_kb.pdf")
-        with open(uploaded_kb_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        st.success(f"Uploaded KB saved to {uploaded_kb_path}")
-        st.session_state.kb_path = uploaded_kb_path
+    # KB upload (Backend Mode)
+    import rag_engine as _re
+    backend_pdfs = _re.get_backend_pdfs()
+    
+    if backend_pdfs:
+        st.success(f"Backend Knowledge Base: Found {len(backend_pdfs)} PDF(s) in 'data/' folder.")
+        # Store for session
+        st.session_state.kb_paths = backend_pdfs
     else:
-        if 'kb_path' not in st.session_state:
-            st.session_state.kb_path = None
+        st.info("No documents found in backend 'data/' folder. Upload files to your GitHub 'data' directory to build the knowledge base.")
+        st.session_state.kb_paths = None
 
     # 1. LLM Status
     st.subheader("1. LLM Status (DeepSeek)")
@@ -150,15 +150,10 @@ with st.sidebar:
             status_text = "Retriever Initializing (Local)..." if dev_mode else "Retriever Initializing (Embeddings API Call)..."
             with st.spinner(status_text):
                 try:
-                    # If user uploaded a KB, tell rag_engine to use it
-                    try:
-                        import rag_engine as _re
-                        if st.session_state.get('kb_path'):
-                            _re.KB_FILE_PATH = st.session_state.kb_path
-                    except Exception:
-                        pass
-
-                    st.session_state.retriever = get_retriever()
+                    # Pass the list of uploaded KB paths to the retriever initialization
+                    kb_to_load = st.session_state.get('kb_paths')
+                    st.session_state.retriever = get_retriever(file_paths=kb_to_load)
+                    
                     if st.session_state.retriever:
                         st.success("Knowledge Base loaded and Retriever is ready.")
                     else:
@@ -243,3 +238,4 @@ if submit_button and user_input:
         except Exception as e:
             error_message = f"An error occurred: {e}"
             st.error(error_message)
+            st.session_state.messages.append({"role": "assistant", "content": error_message})
