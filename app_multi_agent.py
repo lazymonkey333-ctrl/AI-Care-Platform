@@ -125,7 +125,8 @@ with st.sidebar:
     # 2. RAG Initialization
     st.subheader("2. Knowledge Base Setup")
 
-    dev_mode = st.checkbox("Dev Mode (Local Embeddings)", value=os.getenv("RAG_USE_RANDOM_EMBEDDINGS") == "1", help="Use local random embeddings instead of calling the API. Useful if you get 404 errors.")
+    # Set default value to True so users don't have to manually check it
+    dev_mode = st.checkbox("Dev Mode (Local Embeddings)", value=True, help="Use local random embeddings instead of calling the API. Useful if you get 404 errors.")
     if dev_mode:
         os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1"
     else:
@@ -242,4 +243,3 @@ if submit_button and user_input:
         except Exception as e:
             error_message = f"An error occurred: {e}"
             st.error(error_message)
-            st.session_state.messages.append({"role": "assistant", "content": error_message})
