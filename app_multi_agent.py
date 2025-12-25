@@ -9,9 +9,8 @@ from datetime import datetime
 load_dotenv()
 
 # --- Page Configuration ---
-# initial_sidebar_state="collapsed" hides the sidebar by default
 st.set_page_config(
-    page_title="AI Care Platform", 
+    page_title="AI Care Assistant", 
     layout="wide", 
     initial_sidebar_state="collapsed"
 )
@@ -22,85 +21,79 @@ if "messages" not in st.session_state:
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
 
-# --- Helper: Backend Logger ---
+# --- IMPORTANT NOTE ON LOGS ---
+# Local logs created on Streamlit Cloud stay on the Cloud Server.
+# They DO NOT sync back to GitHub. You can only see them in the 
+# Streamlit "Manage App" dashboard or by connecting a database.
 def log_user_query(query, response):
-    """Save user queries and AI responses to a backend log file."""
     log_dir = "logs"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    
     log_file = os.path.join(log_dir, "chat_history.log")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
     with open(log_file, "a", encoding="utf-8") as f:
-        f.write(f"[{timestamp}] USER: {query}\n")
-        f.write(f"[{timestamp}] AI  : {response}\n")
-        f.write("-" * 50 + "\n")
+        f.write(f"[{timestamp}] USER: {query}\n[{timestamp}] AI  : {response}\n" + "-"*30 + "\n")
 
-# --- Sidebar (Hidden by default, used for Backend Stats) ---
+# --- Sidebar (Configuration & Stats) ---
 with st.sidebar:
-    st.header("Backend Status")
+    st.header("System Configuration")
     
-    # Auto-scan backend data folder
+    # Backend KB Scan
     pdfs = _re.get_backend_pdfs()
     if pdfs:
-        st.success(f"✅ Found {len(pdfs)} documents in backend.")
+        st.success(f"Backend Ready: {len(pdfs)} docs found.")
         st.session_state.kb_paths = pdfs
     else:
-        st.warning("⚠️ No documents found in 'data/' folder.")
+        st.warning("No documents in 'data/' folder.")
     
     st.markdown("---")
-    # Dev mode toggle
-    dev_mode = st.checkbox("Dev Mode (Local Embeddings)", value=True)
+    dev_mode = st.checkbox("Dev Mode (Use Local Mock Embeddings)", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    if st.button("🔄 Reload Knowledge Base"):
-        with st.spinner("Initializing..."):
+    if st.button("Initialize / Reload Knowledge Base"):
+        with st.spinner("Processing..."):
             st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
             if st.session_state.retriever:
-                st.success("Knowledge Base Ready")
+                st.success("Indexing Complete!")
 
 # --- Main UI ---
 st.title("🤖 AI Care Assistant")
-st.info("The sidebar is collapsed by default. You can open it using the arrow in the top left if you need to reload the Knowledge Base.")
+st.caption("Ask questions about the internal medical documents. The sidebar is collapsed for a cleaner experience.")
 
-# Display Chat History (Visual Memory)
+# Render Chat History
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"])
 
-# Chat Input
-if prompt := st.chat_input("Ask me anything about the healthcare documents..."):
-    # Add User Message to State
+# User Input
+if prompt := st.chat_input("What would you like to know?"):
+    # Store user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Analyzing documents..."):
-            # 1. Context Retrieval
+        with st.spinner("Consulting knowledge base..."):
+            # 1. Retrieve
             context = ""
             if st.session_state.retriever:
                 try:
                     docs = st.session_state.retriever.get_relevant_documents(prompt)
                     context = "\n".join([d.page_content for d in docs])
                 except Exception as e:
-                    st.warning(f"Retrieval Error: {e}")
+                    st.warning(f"Retrieval Trace: {e}")
 
-            # 2. Prepare Messages for API (Providing Memory)
-            # We pass the last 5 exchanges to the LLM so it has "memory"
-            chat_memory = st.session_state.messages[-10:] # Last 10 messages (5 turns)
-            
-            system_instruction = "You are a professional healthcare assistant. "
+            # 2. Build Memory (Last 10 messages)
+            system_prompt = "You are a professional medical AI assistant. "
             if context:
-                system_instruction += f"Answer based on the following context:\n{context}"
+                system_prompt += f"Use the provided context to answer:\n{context}"
             else:
-                system_instruction += "Answer based on your general knowledge."
+                system_prompt += "Answer from general knowledge if no context is applicable."
 
-            api_messages = [{"role": "system", "content": system_instruction}]
-            api_messages.extend(chat_memory)
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(st.session_state.messages[-10:])
 
-            # 3. Call DeepSeek API
+            # 3. Call API
             try:
                 client = openai.OpenAI(
                     api_key=os.getenv("OPENAI_API_KEY"), 
@@ -108,13 +101,13 @@ if prompt := st.chat_input("Ask me anything about the healthcare documents..."):
                 )
                 response = client.chat.completions.create(
                     model="deepseek-chat",
-                    messages=api_messages,
-                    temperature=0.3
+                    messages=messages,
+                    temperature=0.4
                 )
                 answer = response.choices[0].message.content
                 st.write(answer)
                 
-                # 4. Save to State and Log to Backend
+                # 4. Save and Log
                 st.session_state.messages.append({"role": "assistant", "content": answer})
                 log_user_query(prompt, answer)
                 
