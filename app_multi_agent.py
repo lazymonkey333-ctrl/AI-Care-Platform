@@ -3,60 +3,120 @@ import streamlit as st
 import openai
 from dotenv import load_dotenv
 import rag_engine as _re
+from datetime import datetime
 
+# Load environment variables
 load_dotenv()
 
-# --- 初始化状态 ---
-if "messages" not in st.session_state: st.session_state.messages = []
-if "retriever" not in st.session_state: st.session_state.retriever = None
+# --- Page Configuration ---
+# initial_sidebar_state="collapsed" hides the sidebar by default
+st.set_page_config(
+    page_title="AI Care Platform", 
+    layout="wide", 
+    initial_sidebar_state="collapsed"
+)
 
-st.set_page_config(page_title="AI Care Private Platform", layout="wide")
-st.title("🛡️ AI Care - 私有知识库平台")
+# --- Session State Initialization ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "retriever" not in st.session_state:
+    st.session_state.retriever = None
 
-with st.sidebar:
-    st.header("后台状态")
+# --- Helper: Backend Logger ---
+def log_user_query(query, response):
+    """Save user queries and AI responses to a backend log file."""
+    log_dir = "logs"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     
-    # 自动扫描 data 文件夹
+    log_file = os.path.join(log_dir, "chat_history.log")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] USER: {query}\n")
+        f.write(f"[{timestamp}] AI  : {response}\n")
+        f.write("-" * 50 + "\n")
+
+# --- Sidebar (Hidden by default, used for Backend Stats) ---
+with st.sidebar:
+    st.header("Backend Status")
+    
+    # Auto-scan backend data folder
     pdfs = _re.get_backend_pdfs()
     if pdfs:
-        st.success(f"✅ 已检测到 {len(pdfs)} 份后台文献")
+        st.success(f"✅ Found {len(pdfs)} documents in backend.")
         st.session_state.kb_paths = pdfs
     else:
-        st.warning("⚠️ data 文件夹中未发现 PDF")
-        st.info("提示：请在 GitHub 的 data/ 目录下上传文件")
+        st.warning("⚠️ No documents found in 'data/' folder.")
     
     st.markdown("---")
-    dev_mode = st.checkbox("开发测试模式 (不消耗 Token)", value=True)
+    # Dev mode toggle
+    dev_mode = st.checkbox("Dev Mode (Local Embeddings)", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    if st.button("🔄 更新/初始化知识库"):
-        st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
-        if st.session_state.retriever:
-            st.success("知识库已就绪！")
+    if st.button("🔄 Reload Knowledge Base"):
+        with st.spinner("Initializing..."):
+            st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
+            if st.session_state.retriever:
+                st.success("Knowledge Base Ready")
 
-# --- 对话界面 ---
+# --- Main UI ---
+st.title("🤖 AI Care Assistant")
+st.info("The sidebar is collapsed by default. You can open it using the arrow in the top left if you need to reload the Knowledge Base.")
+
+# Display Chat History (Visual Memory)
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.write(msg["content"])
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
 
-if prompt := st.chat_input("请问关于文献的内容..."):
+# Chat Input
+if prompt := st.chat_input("Ask me anything about the healthcare documents..."):
+    # Add User Message to State
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"): st.write(prompt)
+    with st.chat_message("user"):
+        st.write(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("正在检索文献并思考..."):
+        with st.spinner("Analyzing documents..."):
+            # 1. Context Retrieval
             context = ""
             if st.session_state.retriever:
-                docs = st.session_state.retriever.get_relevant_documents(prompt)
-                context = "\n".join([d.page_content for d in docs])
+                try:
+                    docs = st.session_state.retriever.get_relevant_documents(prompt)
+                    context = "\n".join([d.page_content for d in docs])
+                except Exception as e:
+                    st.warning(f"Retrieval Error: {e}")
+
+            # 2. Prepare Messages for API (Providing Memory)
+            # We pass the last 5 exchanges to the LLM so it has "memory"
+            chat_memory = st.session_state.messages[-10:] # Last 10 messages (5 turns)
             
-            client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
-            response = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": f"基于文献回答：\n{context}"},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-            answer = response.choices[0].message.content
-            st.write(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
+            system_instruction = "You are a professional healthcare assistant. "
+            if context:
+                system_instruction += f"Answer based on the following context:\n{context}"
+            else:
+                system_instruction += "Answer based on your general knowledge."
+
+            api_messages = [{"role": "system", "content": system_instruction}]
+            api_messages.extend(chat_memory)
+
+            # 3. Call DeepSeek API
+            try:
+                client = openai.OpenAI(
+                    api_key=os.getenv("OPENAI_API_KEY"), 
+                    base_url="https://api.deepseek.com/v1"
+                )
+                response = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=api_messages,
+                    temperature=0.3
+                )
+                answer = response.choices[0].message.content
+                st.write(answer)
+                
+                # 4. Save to State and Log to Backend
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+                log_user_query(prompt, answer)
+                
+            except Exception as e:
+                st.error(f"API Error: {e}")
