@@ -64,12 +64,12 @@ def inject_custom_css():
         
         h1, h2, h3, p { color: #4A3B32; }
         
-        div.stButton > button {
-            background-color: #FFB74D;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            width: 100%;
+        /* Tiny Flush Clear Button */
+        .clear-btn-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 80px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -93,31 +93,31 @@ if "messages" not in st.session_state:
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
 
-# --- PERSONA CONFIG ---
+# --- PERSONA CONFIG --- (Updated with direct selector titles)
 PERSONA_CONFIG = {
-    "Dr. Vein": {
-        "title": "Dr. Vein",
+    "Dr. Vein (Medical Expert)": {
+        "short_name": "Dr. Vein",
         "icon": "🩺",
         "color": "#2196F3",
         "css_class": "vein-bubble",
         "prompt": "You are Dr. Vein, a precise physician. STRICT: NO PARENTHESES. Speak directly."
     },
-    "Kha": {
-        "title": "Kha",
+    "Kha (Death Priest)": {
+        "short_name": "Kha",
         "icon": "🕯️",
         "color": "#FFC107",
         "css_class": "kha-bubble",
         "prompt": "You are Kha, a ritual guide. STRICT: NO PARENTHESES. Speak lyrical/symbolic."
     },
-    "Echo": {
-        "title": "Echo",
+    "Echo (Resonance Child)": {
+        "short_name": "Echo",
         "icon": "🫧",
         "color": "#E91E63",
         "css_class": "echo-bubble",
         "prompt": "You are Echo, a curious child. STRICT: NO PARENTHESES. Speak directly."
     },
-    "Luma": {
-        "title": "Luma",
+    "Luma (Soul Listener)": {
+        "short_name": "Luma",
         "icon": "🌑",
         "color": "#9C27B0",
         "css_class": "luma-bubble",
@@ -134,18 +134,25 @@ for key in PERSONA_CONFIG:
 # --- Sidebar ---
 with st.sidebar:
     st.header("🧠 Personalization")
-    selected_key = st.selectbox("Guardian", list(PERSONA_CONFIG.keys()), index=1)
-    current_persona = PERSONA_CONFIG[selected_key]
     
-    st.markdown(f"### <span style='color:{current_persona['color']}'>{selected_key} {current_persona['icon']}</span>", unsafe_allow_html=True)
+    # 1. Guardian Selector (Now shows IDENTITY)
+    selected_full_name = st.selectbox("Current Guardian", list(PERSONA_CONFIG.keys()), index=1)
+    current_persona = PERSONA_CONFIG[selected_full_name]
     
-    if st.button("🗑️ Clear Chat History"):
-        st.session_state.messages = []
-        st.rerun()
-
     st.markdown("---")
     dev_mode = st.checkbox("Dev Mode", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
+
+    # Quiet documents check
+    pdfs = _re.get_backend_pdfs()
+    if pdfs:
+        st.caption(f"✓ {len(pdfs)} Archives Connected")
+
+    # 2. Mini Clear Button at the bottom
+    st.markdown("<br>" * 10, unsafe_allow_html=True)
+    if st.button("🗑️ Clear Chat", help="Reset conversation state"):
+        st.session_state.messages = []
+        st.rerun()
 
 # --- Main UI ---
 st.title("💀 Talk to Die")
@@ -159,13 +166,18 @@ if st.session_state.retriever is None and st.session_state.get('kb_paths'):
 for msg in st.session_state.messages:
     m_role = msg["role"]
     m_content = msg["content"]
-    p_key = msg.get("persona_key")
-    p_config = PERSONA_CONFIG.get(p_key, {}) if p_key else {}
+    p_key = msg.get("persona_name") # The short name we used for display
+    p_config = None
+    # Find config by checking nested short_names
+    for cfg in PERSONA_CONFIG.values():
+        if cfg["short_name"] == p_key:
+            p_config = cfg
+            break
+
     avatar = msg.get("avatar_uri", None)
     
     with st.chat_message(m_role, avatar=avatar):
-        if m_role == "assistant" and p_key:
-            # Added name label next to avatar inside the message
+        if m_role == "assistant" and p_config:
             st.markdown(f"<div class='persona-name' style='color:{p_config['color']}'>{p_key}</div>", unsafe_allow_html=True)
             st.markdown(f"<div class='{p_config['css_class']}'>{m_content}</div>", unsafe_allow_html=True)
         else:
@@ -173,18 +185,20 @@ for msg in st.session_state.messages:
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    user_avatar = generate_avatar_data_uri("👤", "#4A3B32")
+    # USER AVATAR: Warm Orange (#FFB74D) instead of grey
+    user_avatar_uri = generate_avatar_data_uri("👤", "#FFB74D")
+    
     st.session_state.messages.append({
         "role": "user", 
         "content": prompt,
-        "avatar_uri": user_avatar
+        "avatar_uri": user_avatar_uri
     })
-    with st.chat_message("user", avatar=user_avatar):
+    with st.chat_message("user", avatar=user_avatar_uri):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
-        st.markdown(f"<div class='persona-name' style='color:{current_persona['color']}'>{selected_key}</div>", unsafe_allow_html=True)
-        with st.spinner(f"{selected_key} is here..."):
+        st.markdown(f"<div class='persona-name' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
+        with st.spinner(f"{current_persona['short_name']} is listening..."):
             context = ""
             if st.session_state.retriever:
                 try:
@@ -206,7 +220,7 @@ if prompt := st.chat_input("Speak to the shadow..."):
                     "role": "assistant", 
                     "content": ans,
                     "avatar_uri": current_persona["avatar_uri"],
-                    "persona_key": selected_key
+                    "persona_name": current_persona["short_name"]
                 })
             except Exception as e:
                 st.error(f"Error: {e}")
