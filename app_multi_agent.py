@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE (Muted Polish) ---
+# --- THEME: WARM CARE (V4 - Muted & Robust) ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -35,51 +35,57 @@ def inject_custom_css():
             background-color: #F6F3E6 !important;
         }
         
-        /* FIX: Prevent white text on mobile/dark mode */
+        /* Titles & Text Visibility */
         h1, h2, h3, p, span, .stMarkdown {
             color: #4A3B32 !important;
         }
         
         /* PERSONA NAME TAGS - White background for mobile visibility */
-        .persona-name {
+        .persona-name-tag {
             font-weight: 600;
             font-size: 0.75em;
             text-transform: uppercase;
             letter-spacing: 1.2px;
             background-color: #ffffff !important; /* Force white background */
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 3px 10px;
+            border-radius: 6px;
             display: inline-block;
             margin-bottom: 6px;
             border: 1px solid #EFEBE0;
+            color: inherit;
         }
         
-        /* SIDEBAR BUTTONS - Non-glaring muted style */
-        /* Secondary (Inactive) */
+        /* SIDEBAR BUTTONS */
+        /* Secondary (Inactive) - Muted Grey */
         div.stButton > button[data-testid="baseButton-secondary"] {
             border: 1px solid #EFEBE0 !important;
             background-color: #ffffff !important;
-            color: #9E938A !important;
+            color: #A0968E !important;
             font-weight: 500 !important;
             height: 48px !important;
             border-radius: 10px !important;
         }
         
-        /* Primary (Active) - We remove the default 'red' or 'bright' streamlit theme */
+        /* Primary (Active) - Custom Color handled in loop */
         div.stButton > button[data-testid="baseButton-primary"] {
             background-color: #ffffff !important;
-            color: #4A3B32 !important;
             border-radius: 10px !important;
             height: 48px !important;
             box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
         }
 
-        /* Clean Chat Messages */
+        /* Chat History Bubbles */
         .stChatMessage[data-testid="stChatMessage"] {
              border-radius: 12px;
              border: 1px solid #EFEBE0;
              margin-bottom: 12px;
              background-color: #ffffff !important;
+        }
+        
+        /* Small Reset Button at bottom */
+        .reset-btn {
+            font-size: 0.6em;
+            opacity: 0.5;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -118,25 +124,25 @@ PERSONA_CONFIG = {
     "Dr. Vein (Medical Expert)": {
         "short_name": "Dr. Vein",
         "icon": "🩺",
-        "color": "#5B7A8C", # Muted Slate Blue
+        "color": "#5D7B8F", # Muted Deep Sea
         "prompt": "You are Dr. Vein, a precise physician. STRICT: NO PARENTHESES. Speak directly."
     },
     "Kha (Death Priest)": {
         "short_name": "Kha",
         "icon": "🕯️",
-        "color": "#A68B6A", # Antique Bronze/Gold
+        "color": "#9E896A", # Muted Bronze
         "prompt": "You are Kha, a ritual guide. STRICT: NO PARENTHESES. Speak lyrical/symbolic."
     },
     "Echo (Resonance Child)": {
         "short_name": "Echo",
         "icon": "✨",
-        "color": "#B57E8F", # Dusty Rose
+        "color": "#B38291", # Muted Rose
         "prompt": "You are Echo, a curious child. STRICT: NO PARENTHESES. Speak directly."
     },
     "Luma (Soul Listener)": {
         "short_name": "Luma",
         "icon": "🌑",
-        "color": "#7A6A8F", # Muted Lavender
+        "color": "#847596", # Muted Plum
         "prompt": "You are Luma, an AI of stillness. STRICT: NO PARENTHESES. Speak sparse."
     }
 }
@@ -151,14 +157,14 @@ for key in PERSONA_CONFIG:
 # --- Sidebar ---
 with st.sidebar:
     st.header("🧠 Guardians")
-    st.caption("Select your guide of the night:")
+    st.caption("Select your guide:")
     
     # RENDER PERSONA BUTTONS
     for p_key, p_config in PERSONA_CONFIG.items():
-        is_active = (st.session_state.selected_persona_key == p_key)
+        is_selected = (st.session_state.selected_persona_key == p_key)
         
-        # Inject custom border for the ACTIVE button to match persona color
-        if is_active:
+        # Inject custom color for the active primary button
+        if is_selected:
             st.markdown(f"""
                 <style>
                 button[data-testid="baseButton-primary"] {{ 
@@ -168,8 +174,9 @@ with st.sidebar:
                 </style>
             """, unsafe_allow_html=True)
             
-        btn_type = "primary" if is_active else "secondary"
-        if st.button(f"{p_config['icon']} {p_key}", key=f"sel_{p_key}", type=btn_type, use_container_width=True):
+        btn_type = "primary" if is_selected else "secondary"
+        # Using a versioned key to force-refresh between updates
+        if st.button(f"{p_config['icon']} {p_key}", key=f"sel_v3_{p_key}", type=btn_type, use_container_width=True):
             st.session_state.selected_persona_key = p_key
             st.rerun()
 
@@ -178,6 +185,12 @@ with st.sidebar:
     st.markdown("---")
     dev_mode = st.checkbox("Dev Mode", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
+
+    # Minimal Reset Button at the very bottom
+    st.markdown("<br>"*5, unsafe_allow_html=True)
+    if st.button("🗑️ Reset All (Force UI Sync)", key="deep_reset_v3", help="Use this if the interface feels stuck"):
+        st.session_state.clear()
+        st.rerun()
 
 # --- Main UI ---
 st.title("💀 Talk to Die")
@@ -202,15 +215,15 @@ for msg in st.session_state.messages:
     
     with st.chat_message(m_role, avatar=avatar):
         if m_role == "assistant" and p_config:
-            # Added a white background tag for the name
-            st.markdown(f"<div class='persona-name' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
+            # White tag background
+            st.markdown(f"<div class='persona-name-tag' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
             st.markdown(m_content)
         else:
             st.markdown(m_content)
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # USER AVATAR: Muted Red (#D9534F) + Cream
+    # USER AVATAR: Muted Red + Cream
     user_avatar_uri = generate_avatar_data_uri(None, "#D9534F", "#FFF9E5", is_user=True)
     
     st.session_state.messages.append({
@@ -222,7 +235,7 @@ if prompt := st.chat_input("Speak to the shadow..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
-        st.markdown(f"<div class='persona-name' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='persona-name-tag' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
         
         with st.spinner(f"{current_persona['short_name']} is here..."):
             context = ""
