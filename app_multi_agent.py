@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE (V4 - Muted & Robust) ---
+# --- THEME: WARM CARE (V5 - Clean Pastels) ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -35,7 +35,7 @@ def inject_custom_css():
             background-color: #F6F3E6 !important;
         }
         
-        /* Titles & Text Visibility */
+        /* Titles & Text Visibility - Force Dark Brown */
         h1, h2, h3, p, span, .stMarkdown {
             color: #4A3B32 !important;
         }
@@ -46,46 +46,31 @@ def inject_custom_css():
             font-size: 0.75em;
             text-transform: uppercase;
             letter-spacing: 1.2px;
-            background-color: #ffffff !important; /* Force white background */
+            background-color: #ffffff !important;
             padding: 3px 10px;
             border-radius: 6px;
             display: inline-block;
             margin-bottom: 6px;
             border: 1px solid #EFEBE0;
-            color: inherit;
         }
         
-        /* SIDEBAR BUTTONS */
-        /* Secondary (Inactive) - Muted Grey */
-        div.stButton > button[data-testid="baseButton-secondary"] {
+        /* SIDEBAR BUTTONS - Global Setup */
+        div.stButton > button {
             border: 1px solid #EFEBE0 !important;
             background-color: #ffffff !important;
-            color: #A0968E !important;
+            color: #A0968E !important; /* Grey for inactive */
             font-weight: 500 !important;
-            height: 48px !important;
-            border-radius: 10px !important;
+            height: 52px !important;
+            border-radius: 12px !important;
+            transition: all 0.2s ease !important;
         }
         
-        /* Primary (Active) - Custom Color handled in loop */
-        div.stButton > button[data-testid="baseButton-primary"] {
-            background-color: #ffffff !important;
-            border-radius: 10px !important;
-            height: 48px !important;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
-        }
-
-        /* Chat History Bubbles */
+        /* Chat Messages Bubbles */
         .stChatMessage[data-testid="stChatMessage"] {
              border-radius: 12px;
              border: 1px solid #EFEBE0;
              margin-bottom: 12px;
              background-color: #ffffff !important;
-        }
-        
-        /* Small Reset Button at bottom */
-        .reset-btn {
-            font-size: 0.6em;
-            opacity: 0.5;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -95,11 +80,14 @@ inject_custom_css()
 # --- Helper: Robust Avatar Generator ---
 def generate_avatar_data_uri(content, bg_color, text_color="white", is_user=False):
     if is_user:
+        # Drawing a custom person silhouette (Cream/米黄色)
+        # We use a explicit HEX for cream: #FFF9E5
         inner_svg = f'''
-            <circle cx="32" cy="22" r="10" fill="{text_color}" />
-            <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="{text_color}" />
+            <circle cx="32" cy="22" r="10" fill="#FFF9E5" />
+            <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="#FFF9E5" />
         '''
     else:
+        # Standard Emoji rendering for AI
         inner_svg = f'<text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{content}</text>'
         
     svg_code = f"""
@@ -119,30 +107,30 @@ if "retriever" not in st.session_state:
 if "selected_persona_key" not in st.session_state:
     st.session_state.selected_persona_key = "Kha (Death Priest)"
 
-# --- PERSONA CONFIG (Muted/Low Saturation Palette) ---
+# --- PERSONA CONFIG (Clean Pastel Palette - Low Saturation but Brighter) ---
 PERSONA_CONFIG = {
     "Dr. Vein (Medical Expert)": {
         "short_name": "Dr. Vein",
         "icon": "🩺",
-        "color": "#5D7B8F", # Muted Deep Sea
+        "color": "#9CC3D5", # Clean Sky Blue (Pastel)
         "prompt": "You are Dr. Vein, a precise physician. STRICT: NO PARENTHESES. Speak directly."
     },
     "Kha (Death Priest)": {
         "short_name": "Kha",
         "icon": "🕯️",
-        "color": "#9E896A", # Muted Bronze
+        "color": "#D4B483", # Warm Sand Gold
         "prompt": "You are Kha, a ritual guide. STRICT: NO PARENTHESES. Speak lyrical/symbolic."
     },
     "Echo (Resonance Child)": {
         "short_name": "Echo",
         "icon": "✨",
-        "color": "#B38291", # Muted Rose
+        "color": "#E5B3C1", # Soft Rose Pink
         "prompt": "You are Echo, a curious child. STRICT: NO PARENTHESES. Speak directly."
     },
     "Luma (Soul Listener)": {
         "short_name": "Luma",
         "icon": "🌑",
-        "color": "#847596", # Muted Plum
+        "color": "#B4A7D6", # Pale Lavender
         "prompt": "You are Luma, an AI of stillness. STRICT: NO PARENTHESES. Speak sparse."
     }
 }
@@ -163,20 +151,24 @@ with st.sidebar:
     for p_key, p_config in PERSONA_CONFIG.items():
         is_selected = (st.session_state.selected_persona_key == p_key)
         
-        # Inject custom color for the active primary button
+        # Unique safe ID for the button
+        b_id = f"btn_v5_{p_key.replace(' ', '_')}"
+        
+        # Inject SPECIFIC CSS for this button if it's selected
+        # We use a light version of the color (alpha 22) for the background to avoid "piercing" colors
         if is_selected:
             st.markdown(f"""
                 <style>
-                button[data-testid="baseButton-primary"] {{ 
-                    border: 2px solid {p_config['color']} !important; 
-                    color: {p_config['color']} !important; 
+                button[key="{b_id}"] {{
+                    border: 2px solid {p_config['color']} !important;
+                    color: {p_config['color']} !important;
+                    background-color: {p_config['color']}15 !important; /* Very subtle tint */
+                    font-weight: 700 !important;
                 }}
                 </style>
             """, unsafe_allow_html=True)
             
-        btn_type = "primary" if is_selected else "secondary"
-        # Using a versioned key to force-refresh between updates
-        if st.button(f"{p_config['icon']} {p_key}", key=f"sel_v3_{p_key}", type=btn_type, use_container_width=True):
+        if st.button(f"{p_config['icon']}  {p_key}", key=b_id, use_container_width=True):
             st.session_state.selected_persona_key = p_key
             st.rerun()
 
@@ -186,15 +178,14 @@ with st.sidebar:
     dev_mode = st.checkbox("Dev Mode", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    # Minimal Reset Button at the very bottom
     st.markdown("<br>"*5, unsafe_allow_html=True)
-    if st.button("🗑️ Reset All (Force UI Sync)", key="deep_reset_v3", help="Use this if the interface feels stuck"):
+    if st.button("🗑️ Reset Application", key="deep_reset_v5"):
         st.session_state.clear()
         st.rerun()
 
 # --- Main UI ---
 st.title("💀 Talk to Die")
-st.caption("The ByeBye Machine. • Deep conversations with the guardians of the threshold.")
+st.caption("The ByeBye Machine. • Conversations across the boundary.")
 
 # Init Retriever
 if st.session_state.retriever is None and st.session_state.get('kb_paths'):
@@ -215,7 +206,6 @@ for msg in st.session_state.messages:
     
     with st.chat_message(m_role, avatar=avatar):
         if m_role == "assistant" and p_config:
-            # White tag background
             st.markdown(f"<div class='persona-name-tag' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
             st.markdown(m_content)
         else:
@@ -223,8 +213,8 @@ for msg in st.session_state.messages:
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # USER AVATAR: Muted Red + Cream
-    user_avatar_uri = generate_avatar_data_uri(None, "#D9534F", "#FFF9E5", is_user=True)
+    # USER AVATAR: Red Background (#FF4B4B) + Cream silhouette (#FFF9E5)
+    user_avatar_uri = generate_avatar_data_uri(None, "#FF4B4B", "#FFF9E5", is_user=True)
     
     st.session_state.messages.append({
         "role": "user", 
