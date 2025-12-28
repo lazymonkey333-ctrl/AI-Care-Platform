@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE (Beige/Cream) ---
+# --- THEME: WARM CARE ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -63,49 +63,54 @@ def inject_custom_css():
 
 inject_custom_css()
 
-# --- Session State Initialization ---
+# --- Session State ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
 
-# --- Logger ---
-def log_user_query(query, response):
-    log_dir = "logs"
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    log_file = os.path.join(log_dir, "chat_history.log")
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open(log_file, "a", encoding="utf-8") as f:
-        f.write(f"[{timestamp}] USER: {query}\n[{timestamp}] AI  : {response}\n" + "-"*30 + "\n")
+# --- PERSONAS ---
+PERSONAS = {
+    "🛡️ Standard Expert": "You are an Elite Medical Assistant. Rules: 1. Prioritize internal archive data. 2. Be concise and professional.",
+    "💕 Empathetic Caregiver": "You are a warm, compassionate healthcare companion. Rules: 1. Use simple, reassuring language. 2. Focus on comfort and understandable advice.",
+    "🔬 Strict Analyst": "You are a rigorous data analyst. Rules: 1. Be extremely direct and concise. 2. Focus purely on data and guidelines.",
+    "👴 Elderly Friendly": "You are a patient assistant for elderly users. Rules: 1. Speak very clearly and slowly. 2. Use metaphors. 3. Remind about safety."
+}
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("⚙️ Configuration")
+    st.header("🧠 Personalization")
     
-    # Backend KB Scan
-    pdfs = _re.get_backend_pdfs()
-    if pdfs:
-        st.success(f"Backend Ready: {len(pdfs)} docs found.")
-        st.session_state.kb_paths = pdfs
-    else:
-        st.warning("No documents in 'data/' folder.")
+    # 1. Persona Selector
+    selected_persona_name = st.selectbox("Style", list(PERSONAS.keys()), index=0)
+    current_system_prompt = PERSONAS[selected_persona_name]
     
     st.markdown("---")
+    
+    # 2. Config
     dev_mode = st.checkbox("Dev Mode (Mock Embeddings)", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    st.markdown("---")
+    # 3. Backend Scan (Silent Mode)
+    # User requested not to show "Reading so many docs"
+    pdfs = _re.get_backend_pdfs()
+    if pdfs:
+        # Silently register paths, no success message
+        st.session_state.kb_paths = pdfs
+        st.caption(f"✓ {len(pdfs)} Archives Connected") # Minimal indicator
+    else:
+        st.warning("No documents found.")
+
     if st.button("Reload Knowledge Base"):
         with st.spinner("Indexing..."):
             st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
             if st.session_state.retriever:
-                st.success("Indexing Complete!")
+                st.toast("Indexing Complete!")
 
 # --- Main UI ---
 st.title("🤖 AI Care (Text-Only)")
 
-# Init Retriever if needed
+# Init Retriever
 if st.session_state.retriever is None and st.session_state.get('kb_paths'):
     st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
 
@@ -116,7 +121,7 @@ for msg in st.session_state.messages:
 
 # User Input
 if prompt := st.chat_input("Ask a medical question..."):
-    # Store user message
+    # Store user
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -130,26 +135,22 @@ if prompt := st.chat_input("Ask a medical question..."):
                     docs = st.session_state.retriever.get_relevant_documents(prompt)
                     context = "\n".join([d.page_content for d in docs])
                 except Exception as e:
-                    st.warning(f"Retrieval Trace: {e}")
+                    pass # Silent fail
 
-            # 2. Build Prompt
-            system_prompt = "You are a professional medical AI assistant. "
+            # 2. Build Prompt (With Persona)
+            final_prompt_text = f"{current_system_prompt}"
             if context:
-                system_prompt += f"Use the provided context to answer:\n{context}"
-            else:
-                system_prompt += "Answer from general knowledge if no context is applicable."
-
-            messages = [{"role": "system", "content": system_prompt}]
-            messages.extend(st.session_state.messages[-10:]) # Short memory
+                final_prompt_text += f"\n\n### ARCHIVE CONTEXT:\n{context}"
+            
+            messages = [{"role": "system", "content": final_prompt_text}]
+            # Append last 10 messages for memory
+            messages.extend(st.session_state.messages[-10:]) 
 
             # 3. Call API (DeepSeek)
-            # You can also swap this to OpenRouter if DeepSeek fails
             try:
                 client = openai.OpenAI(
                     api_key=os.getenv("OPENAI_API_KEY"), 
-                    base_url="https://api.deepseek.com/v1" 
-                    # Note: If reusing standard OPENAI_KEY for deepseek, make sure it matches. 
-                    # If using OpenRouter, change base_url to "https://openrouter.ai/api/v1" and model to "deepseek/deepseek-chat"
+                    base_url="https://api.deepseek.com/v1"
                 )
                 response = client.chat.completions.create(
                     model="deepseek-chat",
@@ -161,7 +162,6 @@ if prompt := st.chat_input("Ask a medical question..."):
                 
                 # 4. Save
                 st.session_state.messages.append({"role": "assistant", "content": answer})
-                log_user_query(prompt, answer)
                 
             except Exception as e:
                 st.error(f"API Error: {e}")
