@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE (Minimalist) ---
+# --- THEME: WARM CARE (Mobile Optimized) ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -28,11 +28,27 @@ def inject_custom_css():
         }
         
         .stApp {
-            background-color: #FDFCF8;
+            background-color: #FDFCF8 !important;
         }
         
         [data-testid="stSidebar"] {
-            background-color: #F6F3E6;
+            background-color: #F6F3E6 !important;
+        }
+        
+        /* FIX: Force Dark Text for Titles (H1, H2, H3) and spans */
+        /* This prevents Streamlit from turning text white on mobile/dark-mode-detected devices */
+        h1, h2, h3, p, span, .stMarkdown {
+            color: #4A3B32 !important;
+        }
+        
+        /* Specific Fix for the Title and Caption */
+        [data-testid="stHeader"] h1, .st-emotion-cache-10trblm, .st-emotion-cache-162961g {
+            color: #4A3B32 !important;
+        }
+        
+        .stCaption {
+            color: #6D5E54 !important;
+            opacity: 1 !important;
         }
         
         /* Persona Name Style */
@@ -42,7 +58,7 @@ def inject_custom_css():
             margin-bottom: 4px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            opacity: 0.8;
+            opacity: 0.9 !important;
         }
         
         /* Clean Chat Messages */
@@ -50,10 +66,8 @@ def inject_custom_css():
              border-radius: 12px;
              border: 1px solid #EFEBE0;
              margin-bottom: 12px;
-             background-color: transparent !important;
+             background-color: #ffffff !important; /* Force white background for bubbles */
         }
-        
-        h1, h2, h3, p { color: #4A3B32; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -62,7 +76,7 @@ inject_custom_css()
 # --- Helper: Robust Avatar Generator ---
 def generate_avatar_data_uri(content, bg_color, text_color="white", is_user=False):
     if is_user:
-        # Drawing a custom person silhouette to ensure the color is precisely cream/米黄色
+        # Drawing a custom person silhouette (Cream/米黄色)
         inner_svg = f'''
             <circle cx="32" cy="22" r="10" fill="{text_color}" />
             <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="{text_color}" />
@@ -168,7 +182,6 @@ for msg in st.session_state.messages:
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
     # USER AVATAR: Red Background (#FF4B4B) + Cream/米黄色 Icon (#FFF9E5)
-    # Using is_user=True to draw the person silhouette path
     user_avatar_uri = generate_avatar_data_uri(None, "#FF4B4B", "#FFF9E5", is_user=True)
     
     st.session_state.messages.append({
