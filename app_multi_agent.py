@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE (Mobile Optimized) ---
+# --- THEME: WARM CARE ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -35,38 +35,39 @@ def inject_custom_css():
             background-color: #F6F3E6 !important;
         }
         
-        /* FIX: Force Dark Text for Titles (H1, H2, H3) and spans */
-        /* This prevents Streamlit from turning text white on mobile/dark-mode-detected devices */
+        /* Titles & Text Visibility */
         h1, h2, h3, p, span, .stMarkdown {
             color: #4A3B32 !important;
         }
         
-        /* Specific Fix for the Title and Caption */
-        [data-testid="stHeader"] h1, .st-emotion-cache-10trblm, .st-emotion-cache-162961g {
-            color: #4A3B32 !important;
+        /* PERSONA CARD STYLING */
+        /* We'll use Streamlit buttons but style them to look like selectable cards */
+        div.stButton > button {
+            border: 2px solid #EFEBE0 !important;
+            background-color: #FDFCF8 !important;
+            color: #A0968E !important; /* Grey by default */
+            font-weight: 600 !important;
+            height: 60px !important;
+            border-radius: 12px !important;
+            transition: all 0.3s ease;
         }
         
-        .stCaption {
-            color: #6D5E54 !important;
-            opacity: 1 !important;
+        /* Active Persona Styling will be injected dynamically via markdown */
+        
+        /* Chat History Bubbles */
+        .stChatMessage[data-testid="stChatMessage"] {
+             border-radius: 12px;
+             border: 1px solid #EFEBE0;
+             margin-bottom: 12px;
+             background-color: #ffffff !important;
         }
         
-        /* Persona Name Style */
         .persona-name {
             font-weight: 600;
             font-size: 0.8em;
             margin-bottom: 4px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            opacity: 0.9 !important;
-        }
-        
-        /* Clean Chat Messages */
-        .stChatMessage[data-testid="stChatMessage"] {
-             border-radius: 12px;
-             border: 1px solid #EFEBE0;
-             margin-bottom: 12px;
-             background-color: #ffffff !important; /* Force white background for bubbles */
         }
         </style>
     """, unsafe_allow_html=True)
@@ -76,13 +77,11 @@ inject_custom_css()
 # --- Helper: Robust Avatar Generator ---
 def generate_avatar_data_uri(content, bg_color, text_color="white", is_user=False):
     if is_user:
-        # Drawing a custom person silhouette (Cream/米黄色)
         inner_svg = f'''
             <circle cx="32" cy="22" r="10" fill="{text_color}" />
             <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="{text_color}" />
         '''
     else:
-        # Standard Emoji for Guardians
         inner_svg = f'<text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{content}</text>'
         
     svg_code = f"""
@@ -99,6 +98,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
+if "selected_persona_key" not in st.session_state:
+    st.session_state.selected_persona_key = "Kha (Death Priest)"
 
 # --- PERSONA CONFIG ---
 PERSONA_CONFIG = {
@@ -128,6 +129,7 @@ PERSONA_CONFIG = {
     }
 }
 
+# Pre-generate Persona Avatars
 for key in PERSONA_CONFIG:
     PERSONA_CONFIG[key]["avatar_uri"] = generate_avatar_data_uri(
         PERSONA_CONFIG[key]["icon"], 
@@ -137,23 +139,41 @@ for key in PERSONA_CONFIG:
 # --- Sidebar ---
 with st.sidebar:
     st.header("🧠 Personalization")
+    st.caption("Choose your guardian of the threshold:")
     
-    selected_full_name = st.selectbox("Current Guardian", list(PERSONA_CONFIG.keys()), index=1)
-    current_persona = PERSONA_CONFIG[selected_full_name]
-    
-    st.markdown(f"### <span style='color:{current_persona['color']}'>{selected_full_name}</span>", unsafe_allow_html=True)
+    # RENDER PERSONA CARDS
+    for p_key, p_config in PERSONA_CONFIG.items():
+        is_active = (st.session_state.selected_persona_key == p_key)
+        
+        # We use a button for selection
+        label = f"{p_config['icon']}  {p_key}"
+        
+        # Dynamic styling for the active button
+        if is_active:
+            st.markdown(f"""
+                <style>
+                div.stButton > button[key*="btn_{p_key.replace(' ', '_')}"] {{
+                    border: 2px solid {p_config['color']} !important;
+                    color: {p_config['color']} !important;
+                    background-color: #ffffff !important;
+                    box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
+                }}
+                </style>
+            """, unsafe_allow_html=True)
+            
+        if st.button(label, key=f"btn_{p_key.replace(' ', '_')}", use_container_width=True):
+            st.session_state.selected_persona_key = p_key
+            st.rerun()
+
+    current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
     
     st.markdown("---")
     dev_mode = st.checkbox("Dev Mode", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    pdfs = _re.get_backend_pdfs()
-    if pdfs:
-        st.caption(f"✓ {len(pdfs)} Archives Connected")
-
 # --- Main UI ---
 st.title("💀 Talk to Die")
-st.caption("The ByeBye Machine. • Deep conversations with the guardians of the threshold.")
+st.caption("The ByeBye Machine. • Conversations across the boundary.")
 
 # Init Retriever
 if st.session_state.retriever is None and st.session_state.get('kb_paths'):
@@ -181,7 +201,7 @@ for msg in st.session_state.messages:
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # USER AVATAR: Red Background (#FF4B4B) + Cream/米黄色 Icon (#FFF9E5)
+    # USER AVATAR: Red + Cream
     user_avatar_uri = generate_avatar_data_uri(None, "#FF4B4B", "#FFF9E5", is_user=True)
     
     st.session_state.messages.append({
@@ -195,7 +215,7 @@ if prompt := st.chat_input("Speak to the shadow..."):
     with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
         st.markdown(f"<div class='persona-name' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
         
-        with st.spinner(f"{current_persona['short_name']} is listening..."):
+        with st.spinner(f"{current_persona['short_name']} is here..."):
             context = ""
             if st.session_state.retriever:
                 try:
@@ -212,7 +232,6 @@ if prompt := st.chat_input("Speak to the shadow..."):
                 res = client.chat.completions.create(model="deepseek-chat", messages=payload, temperature=0.4)
                 ans = res.choices[0].message.content
                 st.markdown(ans)
-                
                 st.session_state.messages.append({
                     "role": "assistant", 
                     "content": ans,
