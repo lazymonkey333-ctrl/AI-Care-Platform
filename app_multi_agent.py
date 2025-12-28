@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE ---
+# --- THEME: WARM CARE (Muted Polish) ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -35,48 +35,51 @@ def inject_custom_css():
             background-color: #F6F3E6 !important;
         }
         
-        /* Titles & Text Visibility */
+        /* FIX: Prevent white text on mobile/dark mode */
         h1, h2, h3, p, span, .stMarkdown {
             color: #4A3B32 !important;
         }
         
-        /* PERSONA CARD BUTTONS */
-        /* Secondary = Inactive (Grey) */
+        /* PERSONA NAME TAGS - White background for mobile visibility */
+        .persona-name {
+            font-weight: 600;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            background-color: #ffffff !important; /* Force white background */
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 6px;
+            border: 1px solid #EFEBE0;
+        }
+        
+        /* SIDEBAR BUTTONS - Non-glaring muted style */
+        /* Secondary (Inactive) */
         div.stButton > button[data-testid="baseButton-secondary"] {
             border: 1px solid #EFEBE0 !important;
             background-color: #ffffff !important;
-            color: #A0968E !important;
+            color: #9E938A !important;
             font-weight: 500 !important;
-            height: 50px !important;
+            height: 48px !important;
             border-radius: 10px !important;
         }
         
-        /* Primary = Active (Colored Highlight) */
-        /* Note: We will dynamically set the border/text color check in the loop */
+        /* Primary (Active) - We remove the default 'red' or 'bright' streamlit theme */
         div.stButton > button[data-testid="baseButton-primary"] {
-            border: 2px solid #4A3B32 !important;
             background-color: #ffffff !important;
             color: #4A3B32 !important;
-            font-weight: 700 !important;
-            height: 50px !important;
             border-radius: 10px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+            height: 48px !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
         }
 
-        /* Chat History Bubbles */
+        /* Clean Chat Messages */
         .stChatMessage[data-testid="stChatMessage"] {
              border-radius: 12px;
              border: 1px solid #EFEBE0;
              margin-bottom: 12px;
              background-color: #ffffff !important;
-        }
-        
-        .persona-name {
-            font-weight: 600;
-            font-size: 0.8em;
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -91,7 +94,6 @@ def generate_avatar_data_uri(content, bg_color, text_color="white", is_user=Fals
             <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="{text_color}" />
         '''
     else:
-        # Use simple text rendering for emojis
         inner_svg = f'<text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{content}</text>'
         
     svg_code = f"""
@@ -111,30 +113,30 @@ if "retriever" not in st.session_state:
 if "selected_persona_key" not in st.session_state:
     st.session_state.selected_persona_key = "Kha (Death Priest)"
 
-# --- PERSONA CONFIG ---
+# --- PERSONA CONFIG (Muted/Low Saturation Palette) ---
 PERSONA_CONFIG = {
     "Dr. Vein (Medical Expert)": {
         "short_name": "Dr. Vein",
         "icon": "🩺",
-        "color": "#2196F3",
+        "color": "#5B7A8C", # Muted Slate Blue
         "prompt": "You are Dr. Vein, a precise physician. STRICT: NO PARENTHESES. Speak directly."
     },
     "Kha (Death Priest)": {
         "short_name": "Kha",
         "icon": "🕯️",
-        "color": "#FFC107",
+        "color": "#A68B6A", # Antique Bronze/Gold
         "prompt": "You are Kha, a ritual guide. STRICT: NO PARENTHESES. Speak lyrical/symbolic."
     },
     "Echo (Resonance Child)": {
         "short_name": "Echo",
-        "icon": "✨",  # CHANGED from 🫧 which might not render
-        "color": "#E91E63",
+        "icon": "✨",
+        "color": "#B57E8F", # Dusty Rose
         "prompt": "You are Echo, a curious child. STRICT: NO PARENTHESES. Speak directly."
     },
     "Luma (Soul Listener)": {
         "short_name": "Luma",
         "icon": "🌑",
-        "color": "#9C27B0",
+        "color": "#7A6A8F", # Muted Lavender
         "prompt": "You are Luma, an AI of stillness. STRICT: NO PARENTHESES. Speak sparse."
     }
 }
@@ -149,19 +151,19 @@ for key in PERSONA_CONFIG:
 # --- Sidebar ---
 with st.sidebar:
     st.header("🧠 Guardians")
-    st.caption("Select your guide:")
+    st.caption("Select your guide of the night:")
     
     # RENDER PERSONA BUTTONS
     for p_key, p_config in PERSONA_CONFIG.items():
         is_active = (st.session_state.selected_persona_key == p_key)
         
-        # ACTIVE STYLE INJECTION (Stable method)
+        # Inject custom border for the ACTIVE button to match persona color
         if is_active:
             st.markdown(f"""
                 <style>
-                button[data-testid="baseButton-primary"] {{
-                    border-color: {p_config['color']} !important;
-                    color: {p_config['color']} !important;
+                button[data-testid="baseButton-primary"] {{ 
+                    border: 2px solid {p_config['color']} !important; 
+                    color: {p_config['color']} !important; 
                 }}
                 </style>
             """, unsafe_allow_html=True)
@@ -179,7 +181,7 @@ with st.sidebar:
 
 # --- Main UI ---
 st.title("💀 Talk to Die")
-st.caption("The ByeBye Machine. • Conversations across the boundary.")
+st.caption("The ByeBye Machine. • Deep conversations with the guardians of the threshold.")
 
 # Init Retriever
 if st.session_state.retriever is None and st.session_state.get('kb_paths'):
@@ -200,6 +202,7 @@ for msg in st.session_state.messages:
     
     with st.chat_message(m_role, avatar=avatar):
         if m_role == "assistant" and p_config:
+            # Added a white background tag for the name
             st.markdown(f"<div class='persona-name' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
             st.markdown(m_content)
         else:
@@ -207,7 +210,8 @@ for msg in st.session_state.messages:
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    user_avatar_uri = generate_avatar_data_uri(None, "#FF4B4B", "#FFF9E5", is_user=True)
+    # USER AVATAR: Muted Red (#D9534F) + Cream
+    user_avatar_uri = generate_avatar_data_uri(None, "#D9534F", "#FFF9E5", is_user=True)
     
     st.session_state.messages.append({
         "role": "user", 
