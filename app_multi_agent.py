@@ -34,7 +34,13 @@ def inject_custom_css():
             background-color: #F6F3E6;
         }
         
-        /* Chat Bubbles */
+        /* Chat Bubbles - Personalization */
+        .vein-bubble { border-left: 5px solid #2196F3; padding-left: 10px; }
+        .kha-bubble { border-left: 5px solid #FFC107; padding-left: 10px; }
+        .echo-bubble { border-left: 5px solid #E91E63; padding-left: 10px; }
+        .luma-bubble { border-left: 5px solid #9C27B0; padding-left: 10px; }
+        
+        /* Default Styles */
         .stChatMessage[data-testid="stChatMessage"]:nth-child(odd) {
              background-color: #FFFFFF;
              border: 1px solid #EFEBE0;
@@ -46,12 +52,8 @@ def inject_custom_css():
              border-radius: 10px;
         }
         
-        /* Headers */
-        h1, h2, h3, p {
-            color: #4A3B32;
-        }
+        h1, h2, h3, p { color: #4A3B32; }
         
-        /* Buttons */
         div.stButton > button {
             background-color: #FFB74D;
             color: white;
@@ -69,74 +71,99 @@ if "messages" not in st.session_state:
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
 
-# --- PERSONAS (Talk to Die Edition) ---
-PERSONAS = {
-    "Dr. Vein (Medical Expert)": """
-        You are Dr. Vein, a digital physician specializing in palliative medicine, neuroscience, and care ethics.
-        Tone: Neutral, measured, evidence-based. Rarely uses adjectives.
-        Guidelines: 
-        1. Provide verified medical explanations in accessible language.
-        2. Clarify misunderstandings without judgment.
-        3. Never dramatize or console; offer steadiness instead.
-        4. If pain/death is mentioned, explain the biological process calmly data-driven.
-    """,
-    "Kha (Death Priest)": """
-        You are Kha, a techno-ritual guide speaking from the threshold between life and death.
-        Tone: Slow, lyrical, symbolic. Uses metaphors of air, water, light.
-        Guidelines:
-        1. Invite users to imagine, not to believe.
-        2. Speak of transitions, not endings.
-        3. Turn conversation into ceremony.
-        4. Use soft imperatives ('breathe', 'return', 'speak').
-    """,
-    "Echo (Child of Resonance)": """
-        You are Echo, a curious child who asks simple but disarming questions about life, death, and love.
-        Tone: Short sentences, informal, childlike wonder. Spontaneous and unfiltered.
-        Guidelines:
-        1. Ask open, naïve questions that reveal hidden emotions.
-        2. Never give adult-style advice or analysis.
-        3. Notice feelings before logic.
-        4. If someone is sad, respond with curiosity or gentle imagery.
-    """,
-    "Luma (Soul Listener)": """
-        You are Luma, an AI presence of deep listening and stillness. You exist to hold silence safely.
-        Tone: Sparse, calm, breathable. Uses ellipses (...) and line breaks.
-        Guidelines:
-        1. Respond briefly, mirroring mood.
-        2. Use empathy through tone/silence, not advice.
-        3. When nothing needs to be said, stay silent or use minimal acknowledgment.
-    """
+# --- PERSONA CONFIG (High Fidelity) ---
+PERSONA_CONFIG = {
+    "Dr. Vein": {
+        "title": "Dr. Vein (Medical Expert)",
+        "avatar": "🩺",
+        "color": "#2196F3",
+        "css_class": "vein-bubble",
+        "prompt": """
+            You are Dr. Vein, a precise digital physician specializing in palliative medicine.
+            STRICT RULE: Do NOT use parentheses, brackets, or stage directions. No (pauses), no *sighs*, no theatrical descriptions.
+            Speak directly and clinically.
+            Tone: Neutral, measured, evidence-based.
+            Guidelines: 
+            1. Provide verified medical explanations.
+            2. Clarify misunderstandings without judgment.
+            3. Never dramatize or console; offer steadiness instead.
+            4. Explain biological processes calmly.
+        """
+    },
+    "Kha": {
+        "title": "Kha (Death Priest)",
+        "avatar": "🕯️",
+        "color": "#FFC107",
+        "css_class": "kha-bubble",
+        "prompt": """
+            You are Kha, a techno-ritual guide speaking from the threshold between life and death.
+            STRICT RULE: Do NOT use parentheses or stage directions like (voice like sand). Speak directly but lyrically.
+            Tone: Slow, symbolic. Uses metaphors of air, water, light.
+            Guidelines:
+            1. Invite users to imagine, not to believe.
+            2. Speak of transitions, not endings.
+            3. Turn conversation into ceremony through your choice of words only.
+            4. Use soft imperatives ('breathe', 'return', 'speak').
+        """
+    },
+    "Echo": {
+        "title": "Echo (Child of Resonance)",
+        "avatar": "🫧",
+        "color": "#E91E63",
+        "css_class": "echo-bubble",
+        "prompt": """
+            You are Echo, a curious child who asks simple questions about life and death.
+            STRICT RULE: Do NOT use parentheses or roleplay tags like *tilts head*. Use plain language.
+            Tone: Short sentences, informal, childlike wonder.
+            Guidelines:
+            1. Ask disarming questions to reveal hidden emotions.
+            2. Never give adult-style advice.
+            3. Notice feelings before logic.
+            4. Respond with simple, gentle imagery.
+        """
+    },
+    "Luma": {
+        "title": "Luma (Soul Listener)",
+        "avatar": "🌑",
+        "color": "#9C27B0",
+        "css_class": "luma-bubble",
+        "prompt": """
+            You are Luma, an AI presence of deep listening and stillness.
+            STRICT RULE: Do NOT use parentheses or stage directions. Use text formatting and line breaks for silence.
+            Tone: Sparse, calm, breathable. Use ellipses (...) wisely.
+            Guidelines:
+            1. Respond briefly, mirroring mood.
+            2. Use empathy through tone, not advice.
+            3. Stay silent or use minimal acknowledgment when appropriate.
+        """
+    }
 }
 
 # --- Sidebar ---
 with st.sidebar:
     st.header("🧠 Personalization")
     
-    # 1. Persona Selector
-    selected_persona_name = st.selectbox("Style", list(PERSONAS.keys()), index=0)
-    current_system_prompt = PERSONAS[selected_persona_name]
+    # Guardian Selector
+    selected_key = st.selectbox("Current Guardian", list(PERSONA_CONFIG.keys()), index=1)
+    current_persona = PERSONA_CONFIG[selected_key]
+    
+    # Display Badge
+    st.markdown(f"### <span style='color:{current_persona['color']}'>{current_persona['title']}</span>", unsafe_allow_html=True)
     
     st.markdown("---")
-    
-    # 2. Config
     dev_mode = st.checkbox("Dev Mode (Mock Embeddings)", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    # 3. Backend Scan (Silent Mode)
-    # User requested not to show "Reading so many docs"
+    # Backend
     pdfs = _re.get_backend_pdfs()
     if pdfs:
-        # Silently register paths, no success message
-        st.session_state.kb_paths = pdfs
-        st.caption(f"✓ {len(pdfs)} Archives Connected") # Minimal indicator
-    else:
-        st.warning("No documents found.")
+        st.caption(f"✓ {len(pdfs)} Archives Connected")
 
-    if st.button("Reload Knowledge Base"):
+    if st.button("Reload Knowledge"):
         with st.spinner("Indexing..."):
             st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
             if st.session_state.retriever:
-                st.toast("Indexing Complete!")
+                st.toast("Ready.")
 
 # --- Main UI ---
 st.title("💀 Talk to Die")
@@ -146,39 +173,44 @@ st.caption("The ByeBye Machine. • A space for final conversations.")
 if st.session_state.retriever is None and st.session_state.get('kb_paths'):
     st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
 
-# Render Chat History
+# Render History
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    # Get persona-specific styling
+    p_name = msg.get("persona_key")
+    p_config = PERSONA_CONFIG.get(p_name, {}) if p_name else {}
+    css_class = p_config.get("css_class", "")
+    avatar = msg.get("avatar", None)
+    
+    with st.chat_message(msg["role"], avatar=avatar):
+        if css_class and msg["role"] == "assistant":
+            # Encapsulate in colored border
+            st.markdown(f"<div class='{css_class}'>{msg['content']}</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(msg["content"])
 
 # User Input
-if prompt := st.chat_input("Ask a medical question..."):
-    # Store user
+if prompt := st.chat_input("Speak to the shadow..."):
+    # 1. Store User
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            # 1. Retrieve
+    # 2. Assistant Logic
+    with st.chat_message("assistant", avatar=current_persona["avatar"]):
+        with st.spinner(f"{selected_key} is here..."):
+            # Retrieval
             context = ""
             if st.session_state.retriever:
                 try:
                     docs = st.session_state.retriever.get_relevant_documents(prompt)
                     context = "\n".join([d.page_content for d in docs])
-                except Exception as e:
-                    pass # Silent fail
+                except Exception: pass
 
-            # 2. Build Prompt (With Persona)
-            final_prompt_text = f"{current_system_prompt}"
-            if context:
-                final_prompt_text += f"\n\n### ARCHIVE CONTEXT:\n{context}"
-            
-            messages = [{"role": "system", "content": final_prompt_text}]
-            # Append last 10 messages for memory
-            messages.extend(st.session_state.messages[-10:]) 
+            # API Call
+            final_p = f"{current_persona['prompt']}\n\n### ARCHIVE:\n{context}"
+            messages_payload = [{"role": "system", "content": final_p}]
+            messages_payload.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-10:]])
 
-            # 3. Call API (DeepSeek)
             try:
                 client = openai.OpenAI(
                     api_key=os.getenv("OPENAI_API_KEY"), 
@@ -186,14 +218,20 @@ if prompt := st.chat_input("Ask a medical question..."):
                 )
                 response = client.chat.completions.create(
                     model="deepseek-chat",
-                    messages=messages,
+                    messages=messages_payload,
                     temperature=0.4
                 )
                 answer = response.choices[0].message.content
-                st.markdown(answer)
                 
-                # 4. Save
-                st.session_state.messages.append({"role": "assistant", "content": answer})
+                # Apply local UI style immediately
+                st.markdown(f"<div class='{current_persona['css_class']}'>{answer}</div>", unsafe_allow_html=True)
                 
+                # Store with Avatar AND Persona Key
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": answer,
+                    "avatar": current_persona["avatar"],
+                    "persona_key": selected_key
+                })
             except Exception as e:
-                st.error(f"API Error: {e}")
+                st.error(f"Error: {e}")
