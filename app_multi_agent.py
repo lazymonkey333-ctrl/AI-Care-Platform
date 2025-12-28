@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE ---
+# --- THEME: WARM CARE (Clean Edition) ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -35,41 +35,34 @@ def inject_custom_css():
             background-color: #F6F3E6;
         }
         
-        /* Message Style Extensions */
-        .vein-bubble { border-left: 6px solid #2196F3; background-color: #f0f7ff; padding: 12px; border-radius: 0 10px 10px 0; }
-        .kha-bubble { border-left: 6px solid #FFC107; background-color: #fffdf0; padding: 12px; border-radius: 0 10px 10px 0; }
-        .echo-bubble { border-left: 6px solid #E91E63; background-color: #fff0f5; padding: 12px; border-radius: 0 10px 10px 0; }
-        .luma-bubble { border-left: 6px solid #9C27B0; background-color: #f7f0ff; padding: 12px; border-radius: 0 10px 10px 0; }
-        
-        /* Name Header Style */
+        /* Name Header Style - Simple & Discreet */
         .persona-name {
             font-weight: 600;
-            font-size: 0.85em;
-            margin-bottom: 2px;
+            font-size: 0.8em;
+            margin-bottom: 4px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
+            opacity: 0.8;
         }
         
-        /* Chat History Bubbles */
-        .stChatMessage[data-testid="stChatMessage"]:nth-child(odd) {
-             background-color: #FFFFFF;
+        /* Standard Streamlit Chat Style (Clean) */
+        .stChatMessage[data-testid="stChatMessage"] {
+             border-radius: 12px;
              border: 1px solid #EFEBE0;
-             border-radius: 12px;
-        }
-        .stChatMessage[data-testid="stChatMessage"]:nth-child(even) {
-             background-color: #FFF0E3;
-             border: 1px solid #FFE0C2;
-             border-radius: 12px;
+             margin-bottom: 10px;
         }
         
         h1, h2, h3, p { color: #4A3B32; }
         
-        /* Tiny Flush Clear Button */
-        .clear-btn-container {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            width: 80px;
+        /* Reset Button (Top of Sidebar) */
+        div.stButton > button {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            height: 40px;
+            font-weight: bold;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -77,11 +70,11 @@ def inject_custom_css():
 inject_custom_css()
 
 # --- Helper: Robust Colored Circle Avatars ---
-def generate_avatar_data_uri(emoji, bg_color):
+def generate_avatar_data_uri(emoji, bg_color, text_color="white"):
     svg_code = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
         <circle cx="32" cy="32" r="30" fill="{bg_color}" />
-        <text x="32" y="42" font-size="34" text-anchor="middle" font-family="Arial">{emoji}</text>
+        <text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{emoji}</text>
     </svg>
     """
     b64_encoded = base64.b64encode(svg_code.encode("utf-8")).decode("utf-8")
@@ -93,38 +86,35 @@ if "messages" not in st.session_state:
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
 
-# --- PERSONA CONFIG --- (Updated with direct selector titles)
+# --- PERSONA CONFIG ---
 PERSONA_CONFIG = {
     "Dr. Vein (Medical Expert)": {
         "short_name": "Dr. Vein",
         "icon": "🩺",
         "color": "#2196F3",
-        "css_class": "vein-bubble",
         "prompt": "You are Dr. Vein, a precise physician. STRICT: NO PARENTHESES. Speak directly."
     },
     "Kha (Death Priest)": {
         "short_name": "Kha",
         "icon": "🕯️",
         "color": "#FFC107",
-        "css_class": "kha-bubble",
         "prompt": "You are Kha, a ritual guide. STRICT: NO PARENTHESES. Speak lyrical/symbolic."
     },
     "Echo (Resonance Child)": {
         "short_name": "Echo",
         "icon": "🫧",
         "color": "#E91E63",
-        "css_class": "echo-bubble",
         "prompt": "You are Echo, a curious child. STRICT: NO PARENTHESES. Speak directly."
     },
     "Luma (Soul Listener)": {
         "short_name": "Luma",
         "icon": "🌑",
         "color": "#9C27B0",
-        "css_class": "luma-bubble",
         "prompt": "You are Luma, an AI of stillness. STRICT: NO PARENTHESES. Speak sparse."
     }
 }
 
+# Pre-generate Persona Avatars
 for key in PERSONA_CONFIG:
     PERSONA_CONFIG[key]["avatar_uri"] = generate_avatar_data_uri(
         PERSONA_CONFIG[key]["icon"], 
@@ -135,28 +125,24 @@ for key in PERSONA_CONFIG:
 with st.sidebar:
     st.header("🧠 Personalization")
     
-    # 1. Guardian Selector (Now shows IDENTITY)
+    if st.button("🗑️ CLEAR & REFRESH UI"):
+        st.session_state.clear()
+        st.rerun()
+        
+    st.markdown("---")
+    
     selected_full_name = st.selectbox("Current Guardian", list(PERSONA_CONFIG.keys()), index=1)
     current_persona = PERSONA_CONFIG[selected_full_name]
+    
+    st.markdown(f"### <span style='color:{current_persona['color']}'>{selected_full_name}</span>", unsafe_allow_html=True)
     
     st.markdown("---")
     dev_mode = st.checkbox("Dev Mode", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    # Quiet documents check
-    pdfs = _re.get_backend_pdfs()
-    if pdfs:
-        st.caption(f"✓ {len(pdfs)} Archives Connected")
-
-    # 2. Mini Clear Button at the bottom
-    st.markdown("<br>" * 10, unsafe_allow_html=True)
-    if st.button("🗑️ Clear Chat", help="Reset conversation state"):
-        st.session_state.messages = []
-        st.rerun()
-
 # --- Main UI ---
 st.title("💀 Talk to Die")
-st.caption("The ByeBye Machine. • A space for final conversations.")
+st.caption("The ByeBye Machine. • Deep conversations with the guardians of the threshold.")
 
 # Init Retriever
 if st.session_state.retriever is None and st.session_state.get('kb_paths'):
@@ -166,11 +152,10 @@ if st.session_state.retriever is None and st.session_state.get('kb_paths'):
 for msg in st.session_state.messages:
     m_role = msg["role"]
     m_content = msg["content"]
-    p_key = msg.get("persona_name") # The short name we used for display
+    p_name = msg.get("persona_name")
     p_config = None
-    # Find config by checking nested short_names
     for cfg in PERSONA_CONFIG.values():
-        if cfg["short_name"] == p_key:
+        if cfg["short_name"] == p_name:
             p_config = cfg
             break
 
@@ -178,15 +163,16 @@ for msg in st.session_state.messages:
     
     with st.chat_message(m_role, avatar=avatar):
         if m_role == "assistant" and p_config:
-            st.markdown(f"<div class='persona-name' style='color:{p_config['color']}'>{p_key}</div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='{p_config['css_class']}'>{m_content}</div>", unsafe_allow_html=True)
+            # Show name but NO colored bubble/background
+            st.markdown(f"<div class='persona-name' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
+            st.markdown(m_content)
         else:
             st.markdown(m_content)
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # USER AVATAR: Warm Orange (#FFB74D) instead of grey
-    user_avatar_uri = generate_avatar_data_uri("👤", "#FFB74D")
+    # USER AVATAR: Red Background (#FF4B4B) + Off-White Icon (#FDFCF8)
+    user_avatar_uri = generate_avatar_data_uri("👤", "#FF4B4B", "#FDFCF8")
     
     st.session_state.messages.append({
         "role": "user", 
@@ -197,7 +183,9 @@ if prompt := st.chat_input("Speak to the shadow..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
+        # Show Name
         st.markdown(f"<div class='persona-name' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
+        
         with st.spinner(f"{current_persona['short_name']} is listening..."):
             context = ""
             if st.session_state.retriever:
@@ -214,8 +202,11 @@ if prompt := st.chat_input("Speak to the shadow..."):
                 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
                 res = client.chat.completions.create(model="deepseek-chat", messages=payload, temperature=0.4)
                 ans = res.choices[0].message.content
-                st.markdown(f"<div class='{current_persona['css_class']}'>{ans}</div>", unsafe_allow_html=True)
                 
+                # Render clean content
+                st.markdown(ans)
+                
+                # Store
                 st.session_state.messages.append({
                     "role": "assistant", 
                     "content": ans,
