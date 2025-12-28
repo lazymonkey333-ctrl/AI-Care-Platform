@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE (Clean Edition) ---
+# --- THEME: WARM CARE (Minimalist) ---
 def inject_custom_css():
     st.markdown("""
         <style>
@@ -35,7 +35,7 @@ def inject_custom_css():
             background-color: #F6F3E6;
         }
         
-        /* Name Header Style - Simple & Discreet */
+        /* Persona Name Style */
         .persona-name {
             font-weight: 600;
             font-size: 0.8em;
@@ -45,36 +45,36 @@ def inject_custom_css():
             opacity: 0.8;
         }
         
-        /* Standard Streamlit Chat Style (Clean) */
+        /* Clean Chat Messages */
         .stChatMessage[data-testid="stChatMessage"] {
              border-radius: 12px;
              border: 1px solid #EFEBE0;
-             margin-bottom: 10px;
+             margin-bottom: 12px;
+             background-color: transparent !important;
         }
         
         h1, h2, h3, p { color: #4A3B32; }
-        
-        /* Reset Button (Top of Sidebar) */
-        div.stButton > button {
-            background-color: #ff6b6b;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            width: 100%;
-            height: 40px;
-            font-weight: bold;
-        }
         </style>
     """, unsafe_allow_html=True)
 
 inject_custom_css()
 
-# --- Helper: Robust Colored Circle Avatars ---
-def generate_avatar_data_uri(emoji, bg_color, text_color="white"):
+# --- Helper: Robust Avatar Generator ---
+def generate_avatar_data_uri(content, bg_color, text_color="white", is_user=False):
+    if is_user:
+        # Drawing a custom person silhouette to ensure the color is precisely cream/米黄色
+        inner_svg = f'''
+            <circle cx="32" cy="22" r="10" fill="{text_color}" />
+            <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="{text_color}" />
+        '''
+    else:
+        # Standard Emoji for Guardians
+        inner_svg = f'<text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{content}</text>'
+        
     svg_code = f"""
     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
         <circle cx="32" cy="32" r="30" fill="{bg_color}" />
-        <text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{emoji}</text>
+        {inner_svg}
     </svg>
     """
     b64_encoded = base64.b64encode(svg_code.encode("utf-8")).decode("utf-8")
@@ -114,7 +114,6 @@ PERSONA_CONFIG = {
     }
 }
 
-# Pre-generate Persona Avatars
 for key in PERSONA_CONFIG:
     PERSONA_CONFIG[key]["avatar_uri"] = generate_avatar_data_uri(
         PERSONA_CONFIG[key]["icon"], 
@@ -125,12 +124,6 @@ for key in PERSONA_CONFIG:
 with st.sidebar:
     st.header("🧠 Personalization")
     
-    if st.button("🗑️ CLEAR & REFRESH UI"):
-        st.session_state.clear()
-        st.rerun()
-        
-    st.markdown("---")
-    
     selected_full_name = st.selectbox("Current Guardian", list(PERSONA_CONFIG.keys()), index=1)
     current_persona = PERSONA_CONFIG[selected_full_name]
     
@@ -139,6 +132,10 @@ with st.sidebar:
     st.markdown("---")
     dev_mode = st.checkbox("Dev Mode", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
+
+    pdfs = _re.get_backend_pdfs()
+    if pdfs:
+        st.caption(f"✓ {len(pdfs)} Archives Connected")
 
 # --- Main UI ---
 st.title("💀 Talk to Die")
@@ -163,7 +160,6 @@ for msg in st.session_state.messages:
     
     with st.chat_message(m_role, avatar=avatar):
         if m_role == "assistant" and p_config:
-            # Show name but NO colored bubble/background
             st.markdown(f"<div class='persona-name' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
             st.markdown(m_content)
         else:
@@ -171,8 +167,9 @@ for msg in st.session_state.messages:
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # USER AVATAR: Red Background (#FF4B4B) + Off-White Icon (#FDFCF8)
-    user_avatar_uri = generate_avatar_data_uri("👤", "#FF4B4B", "#FDFCF8")
+    # USER AVATAR: Red Background (#FF4B4B) + Cream/米黄色 Icon (#FFF9E5)
+    # Using is_user=True to draw the person silhouette path
+    user_avatar_uri = generate_avatar_data_uri(None, "#FF4B4B", "#FFF9E5", is_user=True)
     
     st.session_state.messages.append({
         "role": "user", 
@@ -183,7 +180,6 @@ if prompt := st.chat_input("Speak to the shadow..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
-        # Show Name
         st.markdown(f"<div class='persona-name' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
         
         with st.spinner(f"{current_persona['short_name']} is listening..."):
@@ -202,11 +198,8 @@ if prompt := st.chat_input("Speak to the shadow..."):
                 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
                 res = client.chat.completions.create(model="deepseek-chat", messages=payload, temperature=0.4)
                 ans = res.choices[0].message.content
-                
-                # Render clean content
                 st.markdown(ans)
                 
-                # Store
                 st.session_state.messages.append({
                     "role": "assistant", 
                     "content": ans,
