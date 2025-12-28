@@ -40,20 +40,29 @@ def inject_custom_css():
             color: #4A3B32 !important;
         }
         
-        /* PERSONA CARD STYLING */
-        /* We'll use Streamlit buttons but style them to look like selectable cards */
-        div.stButton > button {
-            border: 2px solid #EFEBE0 !important;
-            background-color: #FDFCF8 !important;
-            color: #A0968E !important; /* Grey by default */
-            font-weight: 600 !important;
-            height: 60px !important;
-            border-radius: 12px !important;
-            transition: all 0.3s ease;
+        /* PERSONA CARD BUTTONS */
+        /* Secondary = Inactive (Grey) */
+        div.stButton > button[data-testid="baseButton-secondary"] {
+            border: 1px solid #EFEBE0 !important;
+            background-color: #ffffff !important;
+            color: #A0968E !important;
+            font-weight: 500 !important;
+            height: 50px !important;
+            border-radius: 10px !important;
         }
         
-        /* Active Persona Styling will be injected dynamically via markdown */
-        
+        /* Primary = Active (Colored Highlight) */
+        /* Note: We will dynamically set the border/text color check in the loop */
+        div.stButton > button[data-testid="baseButton-primary"] {
+            border: 2px solid #4A3B32 !important;
+            background-color: #ffffff !important;
+            color: #4A3B32 !important;
+            font-weight: 700 !important;
+            height: 50px !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+        }
+
         /* Chat History Bubbles */
         .stChatMessage[data-testid="stChatMessage"] {
              border-radius: 12px;
@@ -82,6 +91,7 @@ def generate_avatar_data_uri(content, bg_color, text_color="white", is_user=Fals
             <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="{text_color}" />
         '''
     else:
+        # Use simple text rendering for emojis
         inner_svg = f'<text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{content}</text>'
         
     svg_code = f"""
@@ -117,7 +127,7 @@ PERSONA_CONFIG = {
     },
     "Echo (Resonance Child)": {
         "short_name": "Echo",
-        "icon": "🫧",
+        "icon": "✨",  # CHANGED from 🫧 which might not render
         "color": "#E91E63",
         "prompt": "You are Echo, a curious child. STRICT: NO PARENTHESES. Speak directly."
     },
@@ -138,30 +148,26 @@ for key in PERSONA_CONFIG:
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("🧠 Personalization")
-    st.caption("Choose your guardian of the threshold:")
+    st.header("🧠 Guardians")
+    st.caption("Select your guide:")
     
-    # RENDER PERSONA CARDS
+    # RENDER PERSONA BUTTONS
     for p_key, p_config in PERSONA_CONFIG.items():
         is_active = (st.session_state.selected_persona_key == p_key)
         
-        # We use a button for selection
-        label = f"{p_config['icon']}  {p_key}"
-        
-        # Dynamic styling for the active button
+        # ACTIVE STYLE INJECTION (Stable method)
         if is_active:
             st.markdown(f"""
                 <style>
-                div.stButton > button[key*="btn_{p_key.replace(' ', '_')}"] {{
-                    border: 2px solid {p_config['color']} !important;
+                button[data-testid="baseButton-primary"] {{
+                    border-color: {p_config['color']} !important;
                     color: {p_config['color']} !important;
-                    background-color: #ffffff !important;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
                 }}
                 </style>
             """, unsafe_allow_html=True)
             
-        if st.button(label, key=f"btn_{p_key.replace(' ', '_')}", use_container_width=True):
+        btn_type = "primary" if is_active else "secondary"
+        if st.button(f"{p_config['icon']} {p_key}", key=f"sel_{p_key}", type=btn_type, use_container_width=True):
             st.session_state.selected_persona_key = p_key
             st.rerun()
 
@@ -201,7 +207,6 @@ for msg in st.session_state.messages:
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # USER AVATAR: Red + Cream
     user_avatar_uri = generate_avatar_data_uri(None, "#FF4B4B", "#FFF9E5", is_user=True)
     
     st.session_state.messages.append({
