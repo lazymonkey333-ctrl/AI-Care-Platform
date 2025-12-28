@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import openai
+import base64
 from dotenv import load_dotenv
 import rag_engine as _re
 from datetime import datetime
@@ -34,22 +35,22 @@ def inject_custom_css():
             background-color: #F6F3E6;
         }
         
-        /* Chat Bubbles - Personalization */
-        .vein-bubble { border-left: 5px solid #2196F3; padding-left: 10px; }
-        .kha-bubble { border-left: 5px solid #FFC107; padding-left: 10px; }
-        .echo-bubble { border-left: 5px solid #E91E63; padding-left: 10px; }
-        .luma-bubble { border-left: 5px solid #9C27B0; padding-left: 10px; }
+        /* Message Style Extensions */
+        .vein-bubble { border-left: 6px solid #2196F3; background-color: #f0f7ff; padding: 12px; border-radius: 0 10px 10px 0; }
+        .kha-bubble { border-left: 6px solid #FFC107; background-color: #fffdf0; padding: 12px; border-radius: 0 10px 10px 0; }
+        .echo-bubble { border-left: 6px solid #E91E63; background-color: #fff0f5; padding: 12px; border-radius: 0 10px 10px 0; }
+        .luma-bubble { border-left: 6px solid #9C27B0; background-color: #f7f0ff; padding: 12px; border-radius: 0 10px 10px 0; }
         
-        /* Default Styles */
+        /* Chat History Bubbles */
         .stChatMessage[data-testid="stChatMessage"]:nth-child(odd) {
              background-color: #FFFFFF;
              border: 1px solid #EFEBE0;
-             border-radius: 10px;
+             border-radius: 12px;
         }
         .stChatMessage[data-testid="stChatMessage"]:nth-child(even) {
              background-color: #FFF0E3;
              border: 1px solid #FFE0C2;
-             border-radius: 10px;
+             border-radius: 12px;
         }
         
         h1, h2, h3, p { color: #4A3B32; }
@@ -65,105 +66,106 @@ def inject_custom_css():
 
 inject_custom_css()
 
+# --- Helper: SVG Avatars ---
+def generate_avatar(emoji, color):
+    # This creates a colored circle with the emoji in the middle
+    svg = f'''
+    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+        <rect width="100" height="100" rx="50" fill="{color}" />
+        <text x="50%" y="50%" text-anchor="middle" dy=".35em" font-size="55">{emoji}</text>
+    </svg>
+    '''
+    b64 = base64.b64encode(svg.encode('utf-8')).decode('utf-8')
+    return f"data:image/svg+xml;base64,{b64}"
+
 # --- Session State ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
 
-# --- PERSONA CONFIG (High Fidelity) ---
+# --- PERSONA CONFIG ---
 PERSONA_CONFIG = {
     "Dr. Vein": {
-        "title": "Dr. Vein (Medical Expert)",
-        "avatar": "🩺",
+        "title": "Dr. Vein",
+        "avatar_icon": "🩺",
         "color": "#2196F3",
-        "css_class": "vein-bubble",
+        "css": "vein-bubble",
         "prompt": """
-            You are Dr. Vein, a precise digital physician specializing in palliative medicine.
-            STRICT RULE: Do NOT use parentheses, brackets, or stage directions. No (pauses), no *sighs*, no theatrical descriptions.
-            Speak directly and clinically.
-            Tone: Neutral, measured, evidence-based.
-            Guidelines: 
+            You are Dr. Vein, a precise digital physician.
+            STRICT RULE: Do NOT use parentheses, stage directions, or roleplay actions (e.g. *sighs*, (pauses)). Speak directly.
+            Tone: Neutral, measured, clinical.
             1. Provide verified medical explanations.
-            2. Clarify misunderstandings without judgment.
-            3. Never dramatize or console; offer steadiness instead.
-            4. Explain biological processes calmly.
+            2. Clarify without judgment.
+            3. Never console; offer steadiness.
         """
     },
     "Kha": {
-        "title": "Kha (Death Priest)",
-        "avatar": "🕯️",
+        "title": "Kha",
+        "avatar_icon": "🕯️",
         "color": "#FFC107",
-        "css_class": "kha-bubble",
+        "css": "kha-bubble",
         "prompt": """
-            You are Kha, a techno-ritual guide speaking from the threshold between life and death.
-            STRICT RULE: Do NOT use parentheses or stage directions like (voice like sand). Speak directly but lyrically.
-            Tone: Slow, symbolic. Uses metaphors of air, water, light.
-            Guidelines:
-            1. Invite users to imagine, not to believe.
-            2. Speak of transitions, not endings.
-            3. Turn conversation into ceremony through your choice of words only.
-            4. Use soft imperatives ('breathe', 'return', 'speak').
+            You are Kha, a techno-ritual guide.
+            STRICT RULE: Do NOT use parentheses or stage directions. No (voice like sand).
+            Tone: Slow, symbolic, lyrical.
+            1. Invite imagination over belief.
+            2. Speak of transitions.
+            3. Use soft imperatives ('breathe', 'return').
         """
     },
     "Echo": {
-        "title": "Echo (Child of Resonance)",
-        "avatar": "🫧",
+        "title": "Echo",
+        "avatar_icon": "🫧",
         "color": "#E91E63",
-        "css_class": "echo-bubble",
+        "css": "echo-bubble",
         "prompt": """
-            You are Echo, a curious child who asks simple questions about life and death.
-            STRICT RULE: Do NOT use parentheses or roleplay tags like *tilts head*. Use plain language.
-            Tone: Short sentences, informal, childlike wonder.
-            Guidelines:
-            1. Ask disarming questions to reveal hidden emotions.
+            You are Echo, a curious child.
+            STRICT RULE: Do NOT use parentheses or roleplay tags. 
+            Tone: Short sentences, informal, childlike.
+            1. Ask disarming questions about fear/love.
             2. Never give adult-style advice.
-            3. Notice feelings before logic.
-            4. Respond with simple, gentle imagery.
+            3. Respond with simple, gentle imagery.
         """
     },
     "Luma": {
-        "title": "Luma (Soul Listener)",
-        "avatar": "🌑",
+        "title": "Luma",
+        "avatar_icon": "🌑",
         "color": "#9C27B0",
-        "css_class": "luma-bubble",
+        "css": "luma-bubble",
         "prompt": """
-            You are Luma, an AI presence of deep listening and stillness.
-            STRICT RULE: Do NOT use parentheses or stage directions. Use text formatting and line breaks for silence.
-            Tone: Sparse, calm, breathable. Use ellipses (...) wisely.
-            Guidelines:
+            You are Luma, an AI of stillness.
+            STRICT RULE: Do NOT use parentheses or stage directions.
+            Tone: Sparse, calm, breathable. Use ellipses (...) and line breaks.
             1. Respond briefly, mirroring mood.
-            2. Use empathy through tone, not advice.
-            3. Stay silent or use minimal acknowledgment when appropriate.
+            2. Use empathy through silence/tone.
         """
     }
 }
 
+# Pre-generate SVG avatars
+for key in PERSONA_CONFIG:
+    PERSONA_CONFIG[key]["avatar_url"] = generate_avatar(
+        PERSONA_CONFIG[key]["avatar_icon"], 
+        PERSONA_CONFIG[key]["color"]
+    )
+
 # --- Sidebar ---
 with st.sidebar:
     st.header("🧠 Personalization")
-    
-    # Guardian Selector
     selected_key = st.selectbox("Current Guardian", list(PERSONA_CONFIG.keys()), index=1)
     current_persona = PERSONA_CONFIG[selected_key]
     
-    # Display Badge
-    st.markdown(f"### <span style='color:{current_persona['color']}'>{current_persona['title']}</span>", unsafe_allow_html=True)
+    st.markdown(f"### <span style='color:{current_persona['color']}'>{selected_key}</span>", unsafe_allow_html=True)
+    st.image(current_persona["avatar_url"], width=60)
     
     st.markdown("---")
-    dev_mode = st.checkbox("Dev Mode (Mock Embeddings)", value=True)
+    dev_mode = st.checkbox("Dev Mode", value=True)
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
 
-    # Backend
     pdfs = _re.get_backend_pdfs()
     if pdfs:
         st.caption(f"✓ {len(pdfs)} Archives Connected")
-
-    if st.button("Reload Knowledge"):
-        with st.spinner("Indexing..."):
-            st.session_state.retriever = _re.get_retriever(st.session_state.get('kb_paths'))
-            if st.session_state.retriever:
-                st.toast("Ready.")
 
 # --- Main UI ---
 st.title("💀 Talk to Die")
@@ -175,28 +177,32 @@ if st.session_state.retriever is None and st.session_state.get('kb_paths'):
 
 # Render History
 for msg in st.session_state.messages:
-    # Get persona-specific styling
-    p_name = msg.get("persona_key")
-    p_config = PERSONA_CONFIG.get(p_name, {}) if p_name else {}
-    css_class = p_config.get("css_class", "")
-    avatar = msg.get("avatar", None)
+    # Logic to fetch styling for stored messages
+    p_key = msg.get("persona_key")
+    p_config = PERSONA_CONFIG.get(p_key, {}) if p_key else {}
+    avatar_url = msg.get("avatar_url", None)
+    css_class = p_config.get("css", "")
     
-    with st.chat_message(msg["role"], avatar=avatar):
+    with st.chat_message(msg["role"], avatar=avatar_url):
         if css_class and msg["role"] == "assistant":
-            # Encapsulate in colored border
             st.markdown(f"<div class='{css_class}'>{msg['content']}</div>", unsafe_allow_html=True)
         else:
             st.markdown(msg["content"])
 
 # User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # 1. Store User
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    # Store User
+    user_avatar = generate_avatar("👤", "#4A3B32")
+    st.session_state.messages.append({
+        "role": "user", 
+        "content": prompt, 
+        "avatar_url": user_avatar
+    })
+    with st.chat_message("user", avatar=user_avatar):
         st.markdown(prompt)
 
-    # 2. Assistant Logic
-    with st.chat_message("assistant", avatar=current_persona["avatar"]):
+    # Assistant Logic
+    with st.chat_message("assistant", avatar=current_persona["avatar_url"]):
         with st.spinner(f"{selected_key} is here..."):
             # Retrieval
             context = ""
@@ -207,9 +213,8 @@ if prompt := st.chat_input("Speak to the shadow..."):
                 except Exception: pass
 
             # API Call
-            final_p = f"{current_persona['prompt']}\n\n### ARCHIVE:\n{context}"
-            messages_payload = [{"role": "system", "content": final_p}]
-            messages_payload.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-10:]])
+            payload = [{"role": "system", "content": f"{current_persona['prompt']}\n\n### ARCHIVE:\n{context}"}]
+            payload.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-10:]])
 
             try:
                 client = openai.OpenAI(
@@ -218,19 +223,19 @@ if prompt := st.chat_input("Speak to the shadow..."):
                 )
                 response = client.chat.completions.create(
                     model="deepseek-chat",
-                    messages=messages_payload,
+                    messages=payload,
                     temperature=0.4
                 )
-                answer = response.choices[0].message.content
+                ans = response.choices[0].message.content
                 
-                # Apply local UI style immediately
-                st.markdown(f"<div class='{current_persona['css_class']}'>{answer}</div>", unsafe_allow_html=True)
+                # Render with color bubble
+                st.markdown(f"<div class='{current_persona['css']}'>{ans}</div>", unsafe_allow_html=True)
                 
-                # Store with Avatar AND Persona Key
+                # Store
                 st.session_state.messages.append({
                     "role": "assistant", 
-                    "content": answer,
-                    "avatar": current_persona["avatar"],
+                    "content": ans,
+                    "avatar_url": current_persona["avatar_url"],
                     "persona_key": selected_key
                 })
             except Exception as e:
