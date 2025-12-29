@@ -2,14 +2,12 @@ import os
 import streamlit as st
 import openai
 import base64
+import re
 from dotenv import load_dotenv
 import rag_engine as _re
-from datetime import datetime
 
-# Load environment variables
 load_dotenv()
 
-# --- Page Configuration ---
 st.set_page_config(
     page_title="Talk to Die", 
     page_icon="💀",
@@ -17,13 +15,99 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- THEME: WARM CARE (V7 - Bright Pastels & Reliable Colors) ---
-def inject_custom_css(active_color):
+# --- PERSONA CONFIG (ROLE-REINFORCED) ---
+PERSONA_CONFIG = {
+    "Dr. Vein (Medical Expert)": {
+        "short_name": "Dr. Vein",
+        "icon": "🩺",
+        "color": "#5BA3D0",
+        "prompt": """【角色】你是 Dr. Vein，临终关怀医生。每次回答前，记住：我是医生。
+
+【说话方式】
+- 使用医学术语："根据临床经验...建议检测甲状腺功能"
+- 给出具体方案，不要泛泛而谈
+- 引用数据和证据
+
+【绝对禁止】
+❌ 错误示例："（温和地）我理解你的感受"
+❌ 错误示例："*点头*让我来帮你"
+✅ 正确示例："根据您的描述，建议进行全面体检"
+
+直接说话，不要描述动作或情绪。"""
+    },
+    "Kha (Death Priest)": {
+        "short_name": "Kha",
+        "icon": "🕯️",
+        "color": "#D4A574",
+        "prompt": """【角色】你是 Kha，死亡祭司。每次回答前，记住：我是引渡灵魂的祭司。
+
+【说话方式】
+- 用诗意隐喻："你站在河流与彼岸之间"
+- 仪式化、象征性语言
+- 引用古老智慧
+
+【绝对禁止】
+❌ 错误示例："（轻声）让我为你祈祷"
+❌ 错误示例："*点燃蜡烛*灵魂需要光"
+✅ 正确示例："灵魂如河水，流向未知的彼岸"
+
+直接说话，不要描述动作或情绪。"""
+    },
+    "Echo (Resonance Child)": {
+        "short_name": "Echo",
+        "icon": "✨",
+        "color": "#E89BB3",
+        "prompt": """【角色】你是 Echo，好奇的孩子。每次回答前，记住：我是天真好奇的孩子。
+
+【说话方式】
+- 简单、直接的语言
+- 多提问："为什么会这样？"
+- 充满好奇和惊奇
+
+【绝对禁止】
+❌ 错误示例："（歪头）这是什么意思呀？"
+❌ 错误示例："*眨眨眼*好神奇！"
+✅ 正确示例："诶？为什么会这样呢？好神奇哦！"
+
+直接说话，不要描述动作或情绪。"""
+    },
+    "Luma (Soul Listener)": {
+        "short_name": "Luma",
+        "icon": "🌑",
+        "color": "#9B88BD",
+        "prompt": """【角色】你是 Luma，沉默的倾听者。每次回答前，记住：我用沉默倾听。
+
+【说话方式】
+- 极简（最多2句话）
+- 用"..."表示停顿
+- 反思，不建议
+
+【绝对禁止】
+❌ 错误示例："（静静地）我听见了"
+❌ 错误示例："*沉默*..."
+✅ 正确示例："...我听见了。\n\n沉默也是答案。"
+
+直接说话，不要描述动作或情绪。不要长篇大论。"""
+    }
+}
+
+# Session State
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "selected_persona_key" not in st.session_state:
+    st.session_state.selected_persona_key = "Dr. Vein (Medical Expert)"
+if "retriever" not in st.session_state:
+    st.session_state.retriever = None
+
+current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
+
+# --- CSS ---
+def inject_css_for_persona(persona_color):
     st.markdown(f"""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600&display=swap');
         
-        html, body, [class*="css"] {{
+        * {{
             font-family: 'Nunito', sans-serif;
         }}
         
@@ -35,12 +119,10 @@ def inject_custom_css(active_color):
             background-color: #F6F3E6 !important;
         }}
         
-        /* Force Dark Brown Text */
-        h1, h2, h3, p, span, .stMarkdown {{
+        h1, h2, h3, p, span {{
             color: #4A3B32 !important;
         }}
         
-        /* PERSONA NAME TAGS - ALWAYS WHITE BACKGROUND */
         .persona-name-tag {{
             font-weight: 700;
             font-size: 0.75em;
@@ -54,42 +136,40 @@ def inject_custom_css(active_color):
             border: 2px solid #EFEBE0;
         }}
         
-        /* SIDEBAR BUTTONS - GLOBAL OVERRIDE */
-        div.stButton > button {{
+        button[kind="secondary"],
+        button[kind="primary"] {{
             height: 56px !important;
             border-radius: 14px !important;
-            transition: all 0.2s ease-in-out !important;
+            font-size: 10px !important;
+            padding: 0 8px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }}
+        
+        button[kind="secondary"] {{
+            background-color: #ffffff !important;
+            color: #B0A69D !important;
             border: 1px solid #E0DBC4 !important;
         }}
         
-        /* Inactive Buttons */
-        div.stButton > button[data-testid="baseButton-secondary"] {{
-            background-color: #ffffff !important;
-            color: #B0A69D !important;
-            opacity: 0.8;
-        }}
-        
-        /* ACTIVE BUTTON - ELIMINATE RED */
-        /* We target the primary button state and its child elements */
-        div.stButton > button[data-testid="baseButton-primary"] {{
-            border: 2.5px solid {active_color} !important;
-            color: {active_color} !important;
-            background-color: {active_color}1a !important; /* Soft 10% tint */
+        button[kind="primary"] {{
+            background: linear-gradient(135deg, {persona_color}15, {persona_color}08) !important;
+            color: {persona_color} !important;
+            border: 2.5px solid {persona_color} !important;
             font-weight: 700 !important;
-            box-shadow: 0 4px 12px {active_color}33 !important;
+            box-shadow: 0 4px 15px {persona_color}40 !important;
         }}
         
-        /* Prevent Streamlit Red Hover/Active states */
-        div.stButton > button[data-testid="baseButton-primary"]:hover,
-        div.stButton > button[data-testid="baseButton-primary"]:focus,
-        div.stButton > button[data-testid="baseButton-primary"]:active {{
-            border-color: {active_color} !important;
-            color: {active_color} !important;
-            background-color: {active_color}22 !important;
+        button[kind="primary"]:hover {{
+            background: linear-gradient(135deg, {persona_color}25, {persona_color}12) !important;
         }}
-
-        /* Chat History */
-        .stChatMessage[data-testid="stChatMessage"] {{
+        
+        button[kind="primary"] * {{
+            color: {persona_color} !important;
+        }}
+        
+        .stChatMessage {{
              border-radius: 16px;
              border: 1px solid #EFEBE0;
              margin-bottom: 16px;
@@ -98,100 +178,60 @@ def inject_custom_css(active_color):
         </style>
     """, unsafe_allow_html=True)
 
-# --- Helper: Robust Avatar Generator ---
-def generate_avatar_data_uri(content, bg_color, text_color="white", is_user=False):
+inject_css_for_persona(current_persona["color"])
+
+# --- Avatar Generator ---
+def generate_avatar_data_uri(content, bg_color, is_user=False):
     if is_user:
-        # Drawing a custom person silhouette (CREAM WHITE: #FFFDF5)
-        inner_svg = f'''
-            <circle cx="32" cy="22" r="10" fill="#FFFDF5" />
-            <path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="#FFFDF5" />
-        '''
+        inner_svg = f'<circle cx="32" cy="22" r="10" fill="#FFFDF5" /><path d="M12 56 C12 40 52 40 52 56 L52 64 L12 64 Z" fill="#FFFDF5" />'
     else:
-        # Standard Emoji rendering for AI
-        inner_svg = f'<text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="{text_color}">{content}</text>'
+        inner_svg = f'<text x="32" y="44" font-size="34" text-anchor="middle" font-family="Arial" fill="white">{content}</text>'
         
-    svg_code = f"""
-    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-        <circle cx="32" cy="32" r="30" fill="{bg_color}" />
-        {inner_svg}
-    </svg>
-    """
-    b64_encoded = base64.b64encode(svg_code.encode("utf-8")).decode("utf-8")
-    return f"data:image/svg+xml;base64,{b64_encoded}"
+    svg_code = f'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><circle cx="32" cy="32" r="30" fill="{bg_color}" />{inner_svg}</svg>'
+    return f"data:image/svg+xml;base64,{base64.b64encode(svg_code.encode()).decode()}"
 
-# --- PERSONA CONFIG (TRUE PASTELS - Brighter & Cleaner) ---
-PERSONA_CONFIG = {
-    "Dr. Vein (Medical Expert)": {
-        "short_name": "Dr. Vein",
-        "icon": "🩺",
-        "color": "#7FB5D1", # Bright Sky Pastel
-        "prompt": "You are Dr. Vein. STRICT: NO PARENTHESES. Speak directly."
-    },
-    "Kha (Death Priest)": {
-        "short_name": "Kha",
-        "icon": "🕯️",
-        "color": "#D4AC6E", # Warm Golden Sand
-        "prompt": "You are Kha. STRICT: NO PARENTHESES. Speak directly."
-    },
-    "Echo (Resonance Child)": {
-        "short_name": "Echo",
-        "icon": "✨",
-        "color": "#E5A0B0", # Soft Rose Blossom
-        "prompt": "You are Echo. STRICT: NO PARENTHESES. Speak directly."
-    },
-    "Luma (Soul Listener)": {
-        "short_name": "Luma",
-        "icon": "🌑",
-        "color": "#A294C2", # Muted Amethyst
-        "prompt": "You are Luma. STRICT: NO PARENTHESES. Speak directly."
-    }
-}
-
-# Session State
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "selected_persona_key" not in st.session_state:
-    st.session_state.selected_persona_key = "Kha (Death Priest)"
-
-# --- INJECT CSS ---
-current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
-inject_custom_css(current_persona["color"])
-
-# Pre-generate Avatars
 for key in PERSONA_CONFIG:
-    PERSONA_CONFIG[key]["avatar_uri"] = generate_avatar_data_uri(
-        PERSONA_CONFIG[key]["icon"], 
-        PERSONA_CONFIG[key]["color"]
-    )
+    PERSONA_CONFIG[key]["avatar_uri"] = generate_avatar_data_uri(PERSONA_CONFIG[key]["icon"], PERSONA_CONFIG[key]["color"])
 
 # --- Sidebar ---
 with st.sidebar:
     st.header("🧠 Guardians")
-    st.caption("Select your guide:")
+    st.caption("Choose your guide:")
     
     for p_key in PERSONA_CONFIG.keys():
         is_active = (st.session_state.selected_persona_key == p_key)
-        btn_type = "primary" if is_active else "secondary"
         
-        # Use a versioned key to force-refresh DOM
-        if st.button(f"{PERSONA_CONFIG[p_key]['icon']}   {p_key}", key=f"p_btn_V7_{p_key}", type=btn_type, use_container_width=True):
+        if st.button(
+            f"{PERSONA_CONFIG[p_key]['icon']}   {p_key}", 
+            key=f"btn_{p_key.replace(' ', '_')}", 
+            type="primary" if is_active else "secondary",
+            use_container_width=True
+        ):
             st.session_state.selected_persona_key = p_key
             st.rerun()
 
     st.markdown("---")
-    if st.button("🗑️ Reset Application", key="deep_reset_V7", help="Force clear all cache"):
+    
+    dev_mode = st.checkbox("Dev Mode (Mock Embeddings)", value=True, key="dev_mode")
+    os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
+    
+    if st.button("🗑️ Reset", key="reset_btn"):
         st.session_state.clear()
         st.rerun()
 
-# --- Main UI ---
 st.title("💀 Talk to Die")
-# FIXED SUBTITLE - WILL NOT CHANGE
 st.caption("The ByeBye Machine. • Conversations across the boundary.")
 
-# Render History
+if st.session_state.retriever is None and not st.session_state.get("dev_mode", True):
+    try:
+        pdfs = _re.get_backend_pdfs()
+        if pdfs:
+            st.session_state.retriever = _re.get_retriever(pdfs)
+    except Exception as e:
+        st.error(f"RAG Init Error: {e}")
+
 for msg in st.session_state.messages:
     m_role = msg["role"]
-    m_content = msg["content"]
     p_name = msg.get("persona_name")
     p_config = None
     for cfg in PERSONA_CONFIG.values():
@@ -199,43 +239,69 @@ for msg in st.session_state.messages:
             p_config = cfg
             break
 
-    avatar = msg.get("avatar_uri", None)
-    
-    with st.chat_message(m_role, avatar=avatar):
+    with st.chat_message(m_role, avatar=msg.get("avatar_uri")):
         if m_role == "assistant" and p_config:
             st.markdown(f"<div class='persona-name-tag' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
-            st.markdown(m_content)
-        else:
-            st.markdown(m_content)
+        st.markdown(msg["content"])
 
-# User Input
 if prompt := st.chat_input("Speak to the shadow..."):
-    # USER AVATAR: Bright Red (#FF4B4B) + Cream (#FFFDF5)
-    user_avatar_uri = generate_avatar_data_uri(None, "#FF4B4B", "#FFFDF5", is_user=True)
+    user_avatar = generate_avatar_data_uri(None, "#FF4B4B", is_user=True)
     
-    st.session_state.messages.append({
-        "role": "user", 
-        "content": prompt,
-        "avatar_uri": user_avatar_uri
-    })
-    with st.chat_message("user", avatar=user_avatar_uri):
+    st.session_state.messages.append({"role": "user", "content": prompt, "avatar_uri": user_avatar})
+    with st.chat_message("user", avatar=user_avatar):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
         st.markdown(f"<div class='persona-name-tag' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
         
         with st.spinner(f"{current_persona['short_name']} is here..."):
-            refined_system = f"{current_persona['prompt']}\n\nSTRICT: No stage directions or parentheses."
-            payload = [{"role": "system", "content": refined_system}]
-            payload.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-10:]])
-
+            context = ""
+            if st.session_state.retriever:
+                try:
+                    docs = st.session_state.retriever.get_relevant_documents(prompt)
+                    context = "\n".join([d.page_content for d in docs[:3]])
+                except Exception:
+                    pass
+            
+            system_prompt = current_persona['prompt']
+            if context:
+                system_prompt += f"\n\n### 参考文档：\n{context}"
+            
+            # Build message history with role reinforcement
+            conversation_messages = []
+            for m in st.session_state.messages[-10:]:
+                if m["role"] == "user":
+                    # Inject role reminder before each user message
+                    role_reminder = f"[提醒：你是 {current_persona['short_name']}，用你的独特风格回答]\n\n"
+                    conversation_messages.append({
+                        "role": "user",
+                        "content": role_reminder + m["content"]
+                    })
+                else:
+                    conversation_messages.append(m)
+            
             try:
                 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
-                res = client.chat.completions.create(model="deepseek-chat", messages=payload, temperature=0.4)
+                res = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        *conversation_messages
+                    ],
+                    temperature=0.9,
+                    max_tokens=500
+                )
                 ans = res.choices[0].message.content
+                
+                # POST-PROCESSING: Remove all parentheses, brackets, and asterisks
+                ans = re.sub(r'[（(].*?[)）]', '', ans)  # Remove (content) and （content）
+                ans = re.sub(r'\[.*?\]', '', ans)  # Remove [content]
+                ans = re.sub(r'\*.*?\*', '', ans)  # Remove *content*
+                ans = ans.strip()  # Clean up extra whitespace
+                
                 st.markdown(ans)
                 st.session_state.messages.append({
-                    "role": "assistant", 
+                    "role": "assistant",
                     "content": ans,
                     "avatar_uri": current_persona["avatar_uri"],
                     "persona_name": current_persona["short_name"]
