@@ -52,7 +52,7 @@ def inject_custom_css(active_color):
             display: inline-block;
             margin-bottom: 8px;
             border: 1px solid #EFEBE0;
-        }
+        }}
         
         /* SIDEBAR BUTTONS - GLOBAL */
         div.stButton > button {{
@@ -72,10 +72,10 @@ def inject_custom_css(active_color):
         /* Active (Primary) - Dynamically colored based on selection */
         div.stButton > button[data-testid="baseButton-primary"] {{
             border: 2.5px solid {active_color} !important;
-            background-color: {active_color}10 !important; /* Muted background tint */
+            background-color: {active_color}15 !important; /* Muted background tint */
             color: {active_color} !important;
             font-weight: 700 !important;
-            box-shadow: 0 4px 15px {active_color}20 !important;
+            box-shadow: 0 4px 15px {active_color}25 !important;
         }}
 
         /* Clean Chat History */
