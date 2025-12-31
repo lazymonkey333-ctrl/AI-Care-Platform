@@ -183,86 +183,95 @@ def inject_css_for_persona(persona_color):
              background-color: #ffffff !important;
         }}
 
-        .sketch-area div[data-testid="stHorizontalBlock"] {{
+        /* Sketch Area Layout - Desktop Side-by-Side */
+        div.stApp .sketch-area > div[data-testid="stHorizontalBlock"] {{
             align-items: flex-end !important;
         }}
 
         .sketch-controls {{
             display: flex !important;
             flex-direction: column !important;
-            gap: 10px !important;
-            margin-bottom: 2px !important;
+            gap: 12px !important;
+            margin-bottom: 5px !important;
         }}
 
-        /* Responsive Mobile UI */
-        @media only screen and (max-width: 768px) {{
-            .sketch-area div[data-testid="stHorizontalBlock"] {{
+        /* --- MOBILE PORTRAIT OPTIMIZATION (Up to 900px for large phones/tablets) --- */
+        /* Cache-Buster: v1.0.1 */
+        @media only screen and (max-width: 900px) {{
+            /* Force Canvas and Controls to STACK */
+            div.stApp .sketch-area > div[data-testid="stHorizontalBlock"] {{
                 flex-direction: column !important;
                 align-items: center !important;
             }}
             
             .sketch-controls {{
-                margin-top: 15px !important;
+                margin-top: 20px !important;
+                width: 100% !important;
+                align-items: center !important;
+            }}
+            
+            /* Force the palette to stay HORIZONTAL and GRID-LIKE */
+            .sketch-controls div[data-testid="stHorizontalBlock"] {{
+                display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: wrap !important;
                 justify-content: center !important;
-                width: 100% !important;
                 gap: 8px !important;
+                width: 100% !important;
             }}
-            
-            /* Portrait Palette Grid */
+
+            /* Override Streamlit's 100% width stacking for the PALETTE */
             .sketch-controls div[data-testid="column"] {{
-                width: 44px !important;
-                flex: none !important;
+                width: 48px !important;
+                min-width: 48px !important;
+                flex: 0 0 48px !important;
                 margin: 0 !important;
             }}
             
-            .sketch-controls div[data-testid="stHorizontalBlock"] {{
+            /* Canvas Responsive Sizing */
+            .sketch-area iframe {{
                 width: 100% !important;
-                justify-content: center !important;
-                gap: 5px !important;
+                height: 300px !important;
             }}
         }}
 
-        /* Palette Button Core */
+        /* Palette Button Styling - The secret to solid colored buttons */
         .sketch-controls div[data-testid="column"] button {{
             opacity: 0 !important;
-            height: 40px !important;
-            min-height: 40px !important;
-            width: 44px !important;
+            height: 44px !important;
+            min-height: 44px !important;
+            width: 48px !important;
             padding: 0 !important;
             margin: 0 !important;
-            z-index: 2 !important;
-            display: block !important;
+            z-index: 10 !important;
+            cursor: pointer !important;
         }}
 
         .color-block {{
-            width: 100%;
-            height: 38px;
-            border-radius: 8px;
-            border: 1.2px solid rgba(0,0,0,0.1);
-            box-shadow: inset 0 1px 4px rgba(0,0,0,0.1);
-            margin-top: -39px !important; /* Alignment fix */
+            width: 48px;
+            height: 44px;
+            border-radius: 10px;
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.15);
+            margin-top: -44px !important; /* Perfect overlay */
             position: relative;
-            z-index: 1;
+            z-index: 5;
             pointer-events: none;
         }}
 
-        .sketch-area iframe {{
-            max-width: 100% !important;
-        }}
-
+        /* Secondary/Primary buttons (Clear/Send) */
         .sketch-controls [data-testid="baseButton-secondary"],
         .sketch-controls [data-testid="baseButton-primary"] {{
-            height: 36px !important;
-            padding: 0 15px !important;
-            font-size: 12px !important;
+            height: 40px !important;
+            min-height: 40px !important;
+            font-size: 13px !important;
             border-radius: 10px !important;
+            padding: 0 20px !important;
         }}
 
         div.sketch-controls .stCaption p {{
-            margin: 0 0 5px 0 !important;
-            font-size: 11px !important;
+            margin-bottom: 8px !important;
+            font-size: 12px !important;
             color: #A0968E !important;
             text-align: center;
         }}
