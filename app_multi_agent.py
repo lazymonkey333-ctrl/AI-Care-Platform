@@ -281,7 +281,7 @@ if st.session_state.sketch_mode:
             height=300,
             drawing_mode="freedraw",
             point_display_radius=0,
-            key="shadow_sketcher",
+            key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
         )
     
     with col2:
@@ -298,6 +298,10 @@ if st.session_state.sketch_mode:
                 # Visual indicator (CSS dot)
                 st.markdown(f'<div style="background-color:{color}; width:15px; height:15px; border-radius:50%; margin-top:-35px; margin-left:10px; pointer-events:none;"></div>', unsafe_allow_html=True)
 
+        if st.button("🗑️ Clear all", use_container_width=True):
+            st.session_state["shadow_sketcher_version"] = st.session_state.get("shadow_sketcher_version", 0) + 1
+            st.rerun()
+
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✨ Send Sketch", use_container_width=True):
             if canvas_result.image_data is not None:
@@ -308,3 +312,106 @@ if st.session_state.sketch_mode:
                 img.save(buffered, format="PNG")
                 img_base64 = base64.b64encode(buffered.getvalue()).decode()
                 
+                # Add to history
+                user_avatar = generate_avatar_data_uri(None, "#FF4B4B", is_user=True)
+                st.session_state.messages.append({
+                    "role": "user", 
+                    "content": "I shared a sketch with you.", 
+                    "avatar_uri": user_avatar,
+                    "image": f"data:image/png;base64,{img_base64}"
+                })
+                st.toast("Sketch sent to the guardians...", icon="✨")
+                # No st.rerun here to allow execution to flow to response logic
+
+# Render History
+for msg in st.session_state.messages:
+    m_role = msg["role"]
+    p_name = msg.get("persona_name")
+    p_config = None
+    for cfg in PERSONA_CONFIG.values():
+        if cfg["short_name"] == p_name:
+            p_config = cfg
+            break
+
+    with st.chat_message(m_role, avatar=msg.get("avatar_uri")):
+        if m_role == "assistant" and p_config:
+            st.markdown(f"<div class='persona-name-tag' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
+        
+        if "image" in msg:
+            st.image(msg["image"], width=300, caption="User's Sketch")
+            
+        st.markdown(msg["content"])
+
+# User Input
+if prompt := st.chat_input("Speak to the shadow..."):
+    user_avatar = generate_avatar_data_uri(None, "#FF4B4B", is_user=True)
+    st.session_state.messages.append({"role": "user", "content": prompt, "avatar_uri": user_avatar})
+    # No rerun needed, will flow to response logic below
+
+# Handle Assistant Response if last message is from user
+if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+    last_msg = st.session_state.messages[-1]
+    
+    with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
+        st.markdown(f"<div class='persona-name-tag' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
+        
+        with st.spinner(f"{current_persona['short_name']} is here..."):
+            context = ""
+            if st.session_state.retriever:
+                try:
+                    docs = st.session_state.retriever.get_relevant_documents(last_msg["content"])
+                    context = "\n".join([d.page_content for d in docs[:3]])
+                except Exception:
+                    pass
+            
+            system_prompt = current_persona['prompt']
+            if context:
+                system_prompt += f"\n\n### 参考文档：\n{context}"
+            
+            # Build message history with role reinforcement
+            conversation_messages = []
+            for m in st.session_state.messages[-10:]:
+                if m["role"] == "user":
+                    role_reminder = f"[提醒：你是 {current_persona['short_name']}，用你的独特风格回答]\n\n"
+                    # If there's an image, we should theoretically use a vision model
+                    # For now, we'll keep it text and mention the image if present
+                    msg_content = m["content"]
+                    if "image" in m:
+                        msg_content = "[用户绘制了一幅画] " + msg_content
+                    
+                    conversation_messages.append({
+                        "role": "user",
+                        "content": role_reminder + msg_content
+                    })
+                else:
+                    conversation_messages.append(m)
+            
+            try:
+                client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
+                res = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        *conversation_messages
+                    ],
+                    temperature=0.9,
+                    max_tokens=500
+                )
+                ans = res.choices[0].message.content
+                
+                # POST-PROCESSING: Remove all parentheses, brackets, and asterisks
+                ans = re.sub(r'[（(].*?[)）]', '', ans)
+                ans = re.sub(r'\[.*?\]', '', ans)
+                ans = re.sub(r'\*.*?\*', '', ans)
+                ans = ans.strip()
+                
+                st.markdown(ans)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": ans,
+                    "avatar_uri": current_persona["avatar_uri"],
+                    "persona_name": current_persona["short_name"]
+                })
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {e}")
