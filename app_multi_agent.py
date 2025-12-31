@@ -196,10 +196,10 @@ def inject_css_for_persona(persona_color):
         }}
 
         /* --- MOBILE PORTRAIT OPTIMIZATION (Up to 900px) --- */
-        /* Cache-Buster: v1.0.2 */
+        /* Cache-Buster: v1.0.3 - Ultra-aggressive horizontal force */
         @media only screen and (max-width: 900px) {{
             /* Stack main areas vertically */
-            div.stApp .sketch-area > div[data-testid="stHorizontalBlock"] {{
+            div.stApp div[data-testid="stVerticalBlock"] > div.sketch-area > div[data-testid="stHorizontalBlock"] {{
                 flex-direction: column !important;
                 align-items: center !important;
             }}
@@ -207,26 +207,29 @@ def inject_css_for_persona(persona_color):
             .sketch-controls {{
                 margin-top: 15px !important;
                 width: 100% !important;
-                align-items: center !important;
                 display: flex !important;
                 flex-direction: column !important;
+                align-items: center !important;
             }}
             
-            /* FORCE HORIZONTAL PALETTE */
-            .palette-row div[data-testid="stHorizontalBlock"] {{
+            /* FORCE HORIZONTAL PALETTE - Target both the container and the block directly */
+            .palette-container div[data-testid="stHorizontalBlock"],
+            .palette-row div[data-testid="stHorizontalBlock"],
+            .sketch-controls div[data-testid="stHorizontalBlock"] {{
                 display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: wrap !important;
                 justify-content: center !important;
-                gap: 6px !important;
+                gap: 5px !important;
                 width: 100% !important;
             }}
 
-            /* Each column in the palette row should be small and square */
-            .palette-row div[data-testid="column"] {{
-                width: 44px !important;
-                min-width: 44px !important;
-                flex: 0 0 44px !important;
+            /* FORCE COLUMNS TO BE SMALL SQUARES, NOT 100% WIDTH */
+            .sketch-controls div[data-testid="column"] {{
+                width: 42px !important;
+                min-width: 42px !important;
+                max-width: 42px !important;
+                flex: 0 0 42px !important;
                 margin: 0 !important;
                 padding: 0 !important;
             }}
@@ -234,35 +237,39 @@ def inject_css_for_persona(persona_color):
             /* Smaller Canvas for Mobile Portrait */
             .sketch-area iframe {{
                 width: 100% !important;
-                height: 280px !important;
+                height: 260px !important;
                 border: none !important;
             }}
         }}
 
-        /* Universal Palette Button Styling */
-        .sketch-controls div[data-testid="column"] button {{
+        /* Universal Palette Button Styling - High specificity to override Streamlit defaults */
+        div.stApp .sketch-controls div[data-testid="column"] button {{
             opacity: 0 !important;
             height: 40px !important;
             min-height: 40px !important;
-            width: 44px !important;
+            width: 42px !important;
             padding: 0 !important;
             margin: 0 !important;
             z-index: 10 !important;
             cursor: pointer !important;
             border: none !important;
             background: transparent !important;
+            box-shadow: none !important;
+            outline: none !important;
         }}
 
+        /* This is the visible color square */
         .color-block {{
-            width: 44px;
+            width: 42px;
             height: 40px;
             border-radius: 8px;
-            border: 1px solid rgba(0,0,0,0.1);
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-            margin-top: -40px !important; /* Perfect overlay for 40px height */
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+            margin-top: -40px !important; /* Perfect overlay */
             position: relative;
             z-index: 5;
             pointer-events: none;
+            transition: transform 0.1s ease;
         }}
 
         /* Secondary/Primary buttons (Clear/Send) */
