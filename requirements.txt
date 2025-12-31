@@ -11,3 +11,5 @@ requests
 streamlit
 faiss-cpu
 pypdf
+streamlit-drawable-canvas
+Pillow
