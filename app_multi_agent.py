@@ -145,9 +145,9 @@ def inject_css_for_persona(persona_color):
         
         button[kind="secondary"],
         button[kind="primary"] {{
-            height: 56px !important;
-            border-radius: 14px !important;
-            font-size: 10px !important;
+            height: 36px !important;
+            border-radius: 12px !important;
+            font-size: 11px !important;
             padding: 0 8px !important;
             white-space: nowrap !important;
             overflow: hidden !important;
@@ -183,27 +183,42 @@ def inject_css_for_persona(persona_color):
              background-color: #ffffff !important;
         }}
 
-        /* Canvas Container */
-        .canvas-container {{
-            border: 2px solid #EFEBE0;
-            border-radius: 20px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            background-color: #ffffff;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        .sketch-area div[data-testid="stHorizontalBlock"] {{
+            align-items: flex-end !important;
         }}
 
-        /* Color Swatches */
-        .color-swatch {{
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid #E0DBC4;
-            transition: transform 0.2s ease;
+        .sketch-controls {{
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+            margin-bottom: 2px !important;
         }}
-        .color-swatch:hover {{
-            transform: scale(1.2);
+
+        /* Palette Button Styling */
+        .color-block {{
+            width: 100%;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.1); /* Subtle border */
+            box-shadow: inset 0 1px 4px rgba(0,0,0,0.1);
+            margin-top: -38px;
+            pointer-events: none;
+        }}
+
+        .sketch-controls [data-testid="baseButton-secondary"],
+        .sketch-controls [data-testid="baseButton-primary"] {{
+            height: 32px !important;
+            min-height: 32px !important;
+            font-size: 11px !important;
+            border-radius: 8px !important;
+            margin: 0 !important;
+        }}
+
+        div.sketch-controls .stCaption p {{
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 11px !important;
+            color: #A0968E !important;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -266,9 +281,9 @@ if st.session_state.retriever is None and not st.session_state.get("dev_mode", T
 
 # --- Sketch Mode UI ---
 if st.session_state.sketch_mode:
-    st.info("💡 Draw your thoughts below, then click 'Send Sketch' or say something about it.")
-    
-    col1, col2 = st.columns([4, 1.2])  # Adjusted width for color palette
+    # Wrap columns in a custom div to force flex-end alignment
+    st.markdown('<div class="sketch-area">', unsafe_allow_html=True)
+    col1, col2 = st.columns([5, 1], gap="small")
     
     with col1:
         canvas_result = st_canvas(
@@ -276,43 +291,42 @@ if st.session_state.sketch_mode:
             stroke_width=3,
             stroke_color=st.session_state.sketch_color,
             background_color="#ffffff",
-            background_image=None,
             update_streamlit=True,
             height=300,
+            width=700,
             drawing_mode="freedraw",
-            point_display_radius=0,
+            display_toolbar=False,
             key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
         )
     
     with col2:
-        st.write("🎨 Palette")
+        st.markdown('<div class="sketch-controls">', unsafe_allow_html=True)
+        
+        st.caption("🎨 Palette")
         palette = ["#1E1E1E", "#4A3B32", "#7FB5D1", "#D4AC6E", "#E5A0B0", "#A294C2", "#8E9775", "#FF4B4B"]
         
-        # Grid of color buttons
+        # Fully filled color buttons
         p_cols = st.columns(4)
         for idx, color in enumerate(palette):
             with p_cols[idx % 4]:
-                if st.button(" ", key=f"color_{color}_{idx}", help=color):
+                if st.button(" ", key=f"c_{idx}"):
                     st.session_state.sketch_color = color
                     st.rerun()
-                # Visual indicator (CSS dot)
-                st.markdown(f'<div style="background-color:{color}; width:15px; height:15px; border-radius:50%; margin-top:-35px; margin-left:10px; pointer-events:none;"></div>', unsafe_allow_html=True)
+                # Solid color block that perfectly fits the button ellipse
+                st.markdown(f'<div class="color-block" style="background-color:{color};"></div>', unsafe_allow_html=True)
 
-        if st.button("🗑️ Clear all", use_container_width=True):
+        if st.button("🗑️ Clear", use_container_width=True, key="clear_btn"):
             st.session_state["shadow_sketcher_version"] = st.session_state.get("shadow_sketcher_version", 0) + 1
             st.rerun()
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("✨ Send Sketch", use_container_width=True):
+        if st.button("✨ Send", use_container_width=True, key="send_btn"):
             if canvas_result.image_data is not None:
-                # Process image
                 img_data = canvas_result.image_data
                 img = Image.fromarray(img_data.astype('uint8'), 'RGBA')
                 buffered = io.BytesIO()
                 img.save(buffered, format="PNG")
                 img_base64 = base64.b64encode(buffered.getvalue()).decode()
                 
-                # Add to history
                 user_avatar = generate_avatar_data_uri(None, "#FF4B4B", is_user=True)
                 st.session_state.messages.append({
                     "role": "user", 
@@ -321,7 +335,9 @@ if st.session_state.sketch_mode:
                     "image": f"data:image/png;base64,{img_base64}"
                 })
                 st.toast("Sketch sent to the guardians...", icon="✨")
-                # No st.rerun here to allow execution to flow to response logic
+        
+        st.markdown('</div>', unsafe_allow_html=True) # Close sketch-controls div
+    st.markdown('</div>', unsafe_allow_html=True) # Close sketch-area wrapper
 
 # Render History
 for msg in st.session_state.messages:
