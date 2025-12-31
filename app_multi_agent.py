@@ -195,65 +195,71 @@ def inject_css_for_persona(persona_color):
             margin-bottom: 5px !important;
         }}
 
-        /* --- MOBILE PORTRAIT OPTIMIZATION (Up to 900px for large phones/tablets) --- */
-        /* Cache-Buster: v1.0.1 */
+        /* --- MOBILE PORTRAIT OPTIMIZATION (Up to 900px) --- */
+        /* Cache-Buster: v1.0.2 */
         @media only screen and (max-width: 900px) {{
-            /* Force Canvas and Controls to STACK */
+            /* Stack main areas vertically */
             div.stApp .sketch-area > div[data-testid="stHorizontalBlock"] {{
                 flex-direction: column !important;
                 align-items: center !important;
             }}
             
             .sketch-controls {{
-                margin-top: 20px !important;
+                margin-top: 15px !important;
                 width: 100% !important;
                 align-items: center !important;
+                display: flex !important;
+                flex-direction: column !important;
             }}
             
-            /* Force the palette to stay HORIZONTAL and GRID-LIKE */
-            .sketch-controls div[data-testid="stHorizontalBlock"] {{
+            /* FORCE HORIZONTAL PALETTE */
+            .palette-row div[data-testid="stHorizontalBlock"] {{
                 display: flex !important;
                 flex-direction: row !important;
                 flex-wrap: wrap !important;
                 justify-content: center !important;
-                gap: 8px !important;
+                gap: 6px !important;
                 width: 100% !important;
             }}
 
-            /* Override Streamlit's 100% width stacking for the PALETTE */
-            .sketch-controls div[data-testid="column"] {{
-                width: 48px !important;
-                min-width: 48px !important;
-                flex: 0 0 48px !important;
+            /* Each column in the palette row should be small and square */
+            .palette-row div[data-testid="column"] {{
+                width: 44px !important;
+                min-width: 44px !important;
+                flex: 0 0 44px !important;
                 margin: 0 !important;
+                padding: 0 !important;
             }}
             
-            /* Canvas Responsive Sizing */
+            /* Smaller Canvas for Mobile Portrait */
             .sketch-area iframe {{
                 width: 100% !important;
-                height: 300px !important;
+                height: 280px !important;
+                border: none !important;
             }}
         }}
 
-        /* Palette Button Styling - The secret to solid colored buttons */
+        /* Universal Palette Button Styling */
         .sketch-controls div[data-testid="column"] button {{
             opacity: 0 !important;
-            height: 44px !important;
-            min-height: 44px !important;
-            width: 48px !important;
+            height: 40px !important;
+            min-height: 40px !important;
+            width: 44px !important;
             padding: 0 !important;
             margin: 0 !important;
             z-index: 10 !important;
             cursor: pointer !important;
+            border: none !important;
+            background: transparent !important;
         }}
 
         .color-block {{
-            width: 48px;
-            height: 44px;
-            border-radius: 10px;
+            width: 44px;
+            height: 40px;
+            border-radius: 8px;
             border: 1px solid rgba(0,0,0,0.1);
-            box-shadow: inset 0 1px 4px rgba(0,0,0,0.15);
-            margin-top: -44px !important; /* Perfect overlay */
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+            margin-top: -40px !important; /* Perfect overlay for 40px height */
             position: relative;
             z-index: 5;
             pointer-events: none;
@@ -361,6 +367,8 @@ if st.session_state.sketch_mode:
         palette = ["#1E1E1E", "#4A3B32", "#7FB5D1", "#D4AC6E", "#E5A0B0", "#A294C2", "#8E9775", "#FF4B4B"]
         
         st.markdown('<div class="palette-container">', unsafe_allow_html=True)
+        # Wrap columns in a dedicated row div for easier CSS targeting
+        st.markdown('<div class="palette-row">', unsafe_allow_html=True)
         p_cols = st.columns(8) # 8 columns for a single horizontal row on desktop
         for idx, color in enumerate(palette):
             with p_cols[idx]:
@@ -368,8 +376,9 @@ if st.session_state.sketch_mode:
                     st.session_state.sketch_color = color
                     st.rerun()
                 # Solid color block that perfectly fits the button space
-                st.markdown(f'<div class="color-well" style="background-color:{color};"></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="color-block" style="background-color:{color};"></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True) # End palette-row
+        st.markdown('</div>', unsafe_allow_html=True) # End palette-container
 
         if st.button("🗑️ Clear", use_container_width=True, key="clear_btn"):
             st.session_state["shadow_sketcher_version"] = st.session_state.get("shadow_sketcher_version", 0) + 1
