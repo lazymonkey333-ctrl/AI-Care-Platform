@@ -198,11 +198,11 @@ def inject_css_for_persona(persona_color):
         .orientation-hint {{
             display: none;
             background-color: #FFFDF5;
-            padding: 12px;
-            border-radius: 12px;
+            padding: 10px;
+            border-radius: 10px;
             border: 1.5px dashed #D4A574;
             text-align: center;
-            margin-bottom: 12px;
+            margin-bottom: 15px;
             font-size: 13px;
         }}
 
@@ -217,7 +217,7 @@ def inject_css_for_persona(persona_color):
             
             .sketch-area div[data-testid="stHorizontalBlock"] {{
                 flex-direction: column !important;
-                align-items: stretch !important;
+                align-items: center !important;
             }}
             
             .sketch-controls {{
@@ -225,22 +225,44 @@ def inject_css_for_persona(persona_color):
                 flex-direction: row !important;
                 flex-wrap: wrap !important;
                 justify-content: center !important;
+                align-items: center !important;
+                width: 100% !important;
             }}
             
-            .sketch-controls div[data-testid="stHorizontalBlock"] {{
-                width: 100% !important;
+            /* Keep palette buttons from stretching to 100% width on phone */
+            .sketch-controls div[data-testid="column"] {{
+                width: 44px !important;
+                flex: none !important;
+                margin: 2px !important;
             }}
         }}
 
-        /* Palette Button Styling */
+        /* Palette Button Styling - The secret to solid colored buttons */
+        .sketch-controls div[data-testid="column"] button {{
+            opacity: 0 !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            z-index: 2 !important;
+            width: 100% !important;
+            display: block !important;
+        }}
+
         .color-block {{
             width: 100%;
             height: 34px;
             border-radius: 8px;
-            border: 1px solid rgba(0,0,0,0.1); /* Subtle border */
+            border: 1.2px solid rgba(0,0,0,0.1);
             box-shadow: inset 0 1px 4px rgba(0,0,0,0.1);
-            margin-top: -38px;
+            margin-top: -34px !important; /* Perfect overlay for 34px button */
+            position: relative;
+            z-index: 1;
             pointer-events: none;
+        }}
+
+        .sketch-area iframe {{
+            max-width: 100% !important;
         }}
 
         .sketch-controls [data-testid="baseButton-secondary"],
@@ -334,7 +356,7 @@ if st.session_state.sketch_mode:
             background_color="#ffffff",
             update_streamlit=True,
             height=300,
-            width=800, # Increased for landscape/wider screens
+            width=700,
             drawing_mode="freedraw",
             display_toolbar=False,
             key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
