@@ -194,6 +194,44 @@ def inject_css_for_persona(persona_color):
             margin-bottom: 2px !important;
         }}
 
+        /* Orientation Hint for Mobile */
+        .orientation-hint {{
+            display: none;
+            background-color: #FFFDF5;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1.5px dashed #D4A574;
+            text-align: center;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }}
+
+        /* Responsive Breakpoints */
+        @media only screen and (max-width: 768px) {{
+            .orientation-hint {{
+                display: block;
+            }}
+            @media (orientation: landscape) {{
+                .orientation-hint {{ display: none; }}
+            }}
+            
+            .sketch-area div[data-testid="stHorizontalBlock"] {{
+                flex-direction: column !important;
+                align-items: stretch !important;
+            }}
+            
+            .sketch-controls {{
+                margin-top: 15px !important;
+                flex-direction: row !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+            }}
+            
+            .sketch-controls div[data-testid="stHorizontalBlock"] {{
+                width: 100% !important;
+            }}
+        }}
+
         /* Palette Button Styling */
         .color-block {{
             width: 100%;
@@ -281,6 +319,9 @@ if st.session_state.retriever is None and not st.session_state.get("dev_mode", T
 
 # --- Sketch Mode UI ---
 if st.session_state.sketch_mode:
+    # Orientation Hint for Mobile
+    st.markdown('<div class="orientation-hint">🔄 建议横屏使用以获得最佳绘画体验</div>', unsafe_allow_html=True)
+    
     # Wrap columns in a custom div to force flex-end alignment
     st.markdown('<div class="sketch-area">', unsafe_allow_html=True)
     col1, col2 = st.columns([5, 1], gap="small")
@@ -293,7 +334,7 @@ if st.session_state.sketch_mode:
             background_color="#ffffff",
             update_streamlit=True,
             height=300,
-            width=700,
+            width=800, # Increased for landscape/wider screens
             drawing_mode="freedraw",
             display_toolbar=False,
             key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
