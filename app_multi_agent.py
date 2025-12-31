@@ -360,15 +360,16 @@ if st.session_state.sketch_mode:
         st.caption("🎨 Palette")
         palette = ["#1E1E1E", "#4A3B32", "#7FB5D1", "#D4AC6E", "#E5A0B0", "#A294C2", "#8E9775", "#FF4B4B"]
         
-        # Fully filled color buttons
-        p_cols = st.columns(4)
+        st.markdown('<div class="palette-container">', unsafe_allow_html=True)
+        p_cols = st.columns(8) # 8 columns for a single horizontal row on desktop
         for idx, color in enumerate(palette):
-            with p_cols[idx % 4]:
+            with p_cols[idx]:
                 if st.button(" ", key=f"c_{idx}"):
                     st.session_state.sketch_color = color
                     st.rerun()
-                # Solid color block that perfectly fits the button ellipse
-                st.markdown(f'<div class="color-block" style="background-color:{color};"></div>', unsafe_allow_html=True)
+                # Solid color block that perfectly fits the button space
+                st.markdown(f'<div class="color-well" style="background-color:{color};"></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("🗑️ Clear", use_container_width=True, key="clear_btn"):
             st.session_state["shadow_sketcher_version"] = st.session_state.get("shadow_sketcher_version", 0) + 1
