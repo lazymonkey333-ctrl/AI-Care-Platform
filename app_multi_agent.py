@@ -194,27 +194,8 @@ def inject_css_for_persona(persona_color):
             margin-bottom: 2px !important;
         }}
 
-        /* Orientation Hint for Mobile */
-        .orientation-hint {{
-            display: none;
-            background-color: #FFFDF5;
-            padding: 10px;
-            border-radius: 10px;
-            border: 1.5px dashed #D4A574;
-            text-align: center;
-            margin-bottom: 15px;
-            font-size: 13px;
-        }}
-
-        /* Responsive Breakpoints */
+        /* Responsive Mobile UI */
         @media only screen and (max-width: 768px) {{
-            .orientation-hint {{
-                display: block;
-            }}
-            @media (orientation: landscape) {{
-                .orientation-hint {{ display: none; }}
-            }}
-            
             .sketch-area div[data-testid="stHorizontalBlock"] {{
                 flex-direction: column !important;
                 align-items: center !important;
@@ -225,37 +206,43 @@ def inject_css_for_persona(persona_color):
                 flex-direction: row !important;
                 flex-wrap: wrap !important;
                 justify-content: center !important;
-                align-items: center !important;
                 width: 100% !important;
+                gap: 8px !important;
             }}
             
-            /* Keep palette buttons from stretching to 100% width on phone */
+            /* Portrait Palette Grid */
             .sketch-controls div[data-testid="column"] {{
                 width: 44px !important;
                 flex: none !important;
-                margin: 2px !important;
+                margin: 0 !important;
+            }}
+            
+            .sketch-controls div[data-testid="stHorizontalBlock"] {{
+                width: 100% !important;
+                justify-content: center !important;
+                gap: 5px !important;
             }}
         }}
 
-        /* Palette Button Styling - The secret to solid colored buttons */
+        /* Palette Button Core */
         .sketch-controls div[data-testid="column"] button {{
             opacity: 0 !important;
-            height: 34px !important;
-            min-height: 34px !important;
+            height: 40px !important;
+            min-height: 40px !important;
+            width: 44px !important;
             padding: 0 !important;
             margin: 0 !important;
             z-index: 2 !important;
-            width: 100% !important;
             display: block !important;
         }}
 
         .color-block {{
             width: 100%;
-            height: 34px;
+            height: 38px;
             border-radius: 8px;
             border: 1.2px solid rgba(0,0,0,0.1);
             box-shadow: inset 0 1px 4px rgba(0,0,0,0.1);
-            margin-top: -34px !important; /* Perfect overlay for 34px button */
+            margin-top: -39px !important; /* Alignment fix */
             position: relative;
             z-index: 1;
             pointer-events: none;
@@ -267,18 +254,17 @@ def inject_css_for_persona(persona_color):
 
         .sketch-controls [data-testid="baseButton-secondary"],
         .sketch-controls [data-testid="baseButton-primary"] {{
-            height: 32px !important;
-            min-height: 32px !important;
-            font-size: 11px !important;
-            border-radius: 8px !important;
-            margin: 0 !important;
+            height: 36px !important;
+            padding: 0 15px !important;
+            font-size: 12px !important;
+            border-radius: 10px !important;
         }}
 
         div.sketch-controls .stCaption p {{
-            margin: 0 !important;
-            padding: 0 !important;
+            margin: 0 0 5px 0 !important;
             font-size: 11px !important;
             color: #A0968E !important;
+            text-align: center;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -341,10 +327,7 @@ if st.session_state.retriever is None and not st.session_state.get("dev_mode", T
 
 # --- Sketch Mode UI ---
 if st.session_state.sketch_mode:
-    # Orientation Hint for Mobile
-    st.markdown('<div class="orientation-hint">🔄 建议横屏使用以获得最佳绘画体验</div>', unsafe_allow_html=True)
-    
-    # Wrap columns in a custom div to force flex-end alignment
+    # Wrap columns in a custom div to force responsive layout
     st.markdown('<div class="sketch-area">', unsafe_allow_html=True)
     col1, col2 = st.columns([5, 1], gap="small")
     
