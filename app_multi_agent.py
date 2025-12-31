@@ -5,6 +5,9 @@ import base64
 import re
 from dotenv import load_dotenv
 import rag_engine as _re
+from streamlit_drawable_canvas import st_canvas
+from PIL import Image
+import io
 
 load_dotenv()
 
@@ -98,6 +101,10 @@ if "selected_persona_key" not in st.session_state:
     st.session_state.selected_persona_key = "Dr. Vein (Medical Expert)"
 if "retriever" not in st.session_state:
     st.session_state.retriever = None
+if "sketch_mode" not in st.session_state:
+    st.session_state.sketch_mode = False
+if "sketch_color" not in st.session_state:
+    st.session_state.sketch_color = "#4A3B32"
 
 current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
 
@@ -175,6 +182,29 @@ def inject_css_for_persona(persona_color):
              margin-bottom: 16px;
              background-color: #ffffff !important;
         }}
+
+        /* Canvas Container */
+        .canvas-container {{
+            border: 2px solid #EFEBE0;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }}
+
+        /* Color Swatches */
+        .color-swatch {{
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #E0DBC4;
+            transition: transform 0.2s ease;
+        }}
+        .color-swatch:hover {{
+            transform: scale(1.2);
+        }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -212,6 +242,10 @@ with st.sidebar:
 
     st.markdown("---")
     
+    # Mode Toggle
+    st.subheader("🎨 Modes")
+    st.session_state.sketch_mode = st.toggle("Shadow Sketcher", value=st.session_state.sketch_mode, help="Communicate via drawings")
+    
     dev_mode = st.checkbox("Dev Mode (Mock Embeddings)", value=True, key="dev_mode")
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
     
@@ -230,81 +264,47 @@ if st.session_state.retriever is None and not st.session_state.get("dev_mode", T
     except Exception as e:
         st.error(f"RAG Init Error: {e}")
 
-for msg in st.session_state.messages:
-    m_role = msg["role"]
-    p_name = msg.get("persona_name")
-    p_config = None
-    for cfg in PERSONA_CONFIG.values():
-        if cfg["short_name"] == p_name:
-            p_config = cfg
-            break
-
-    with st.chat_message(m_role, avatar=msg.get("avatar_uri")):
-        if m_role == "assistant" and p_config:
-            st.markdown(f"<div class='persona-name-tag' style='color:{p_config['color']}'>{p_name}</div>", unsafe_allow_html=True)
-        st.markdown(msg["content"])
-
-if prompt := st.chat_input("Speak to the shadow..."):
-    user_avatar = generate_avatar_data_uri(None, "#FF4B4B", is_user=True)
+# --- Sketch Mode UI ---
+if st.session_state.sketch_mode:
+    st.info("💡 Draw your thoughts below, then click 'Send Sketch' or say something about it.")
     
-    st.session_state.messages.append({"role": "user", "content": prompt, "avatar_uri": user_avatar})
-    with st.chat_message("user", avatar=user_avatar):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
-        st.markdown(f"<div class='persona-name-tag' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
+    col1, col2 = st.columns([4, 1.2])  # Adjusted width for color palette
+    
+    with col1:
+        canvas_result = st_canvas(
+            fill_color="rgba(255, 165, 0, 0.3)",
+            stroke_width=3,
+            stroke_color=st.session_state.sketch_color,
+            background_color="#ffffff",
+            background_image=None,
+            update_streamlit=True,
+            height=300,
+            drawing_mode="freedraw",
+            point_display_radius=0,
+            key="shadow_sketcher",
+        )
+    
+    with col2:
+        st.write("🎨 Palette")
+        palette = ["#1E1E1E", "#4A3B32", "#7FB5D1", "#D4AC6E", "#E5A0B0", "#A294C2", "#8E9775", "#FF4B4B"]
         
-        with st.spinner(f"{current_persona['short_name']} is here..."):
-            context = ""
-            if st.session_state.retriever:
-                try:
-                    docs = st.session_state.retriever.get_relevant_documents(prompt)
-                    context = "\n".join([d.page_content for d in docs[:3]])
-                except Exception:
-                    pass
-            
-            system_prompt = current_persona['prompt']
-            if context:
-                system_prompt += f"\n\n### 参考文档：\n{context}"
-            
-            # Build message history with role reinforcement
-            conversation_messages = []
-            for m in st.session_state.messages[-10:]:
-                if m["role"] == "user":
-                    # Inject role reminder before each user message
-                    role_reminder = f"[提醒：你是 {current_persona['short_name']}，用你的独特风格回答]\n\n"
-                    conversation_messages.append({
-                        "role": "user",
-                        "content": role_reminder + m["content"]
-                    })
-                else:
-                    conversation_messages.append(m)
-            
-            try:
-                client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
-                res = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        *conversation_messages
-                    ],
-                    temperature=0.9,
-                    max_tokens=500
-                )
-                ans = res.choices[0].message.content
+        # Grid of color buttons
+        p_cols = st.columns(4)
+        for idx, color in enumerate(palette):
+            with p_cols[idx % 4]:
+                if st.button(" ", key=f"color_{color}_{idx}", help=color):
+                    st.session_state.sketch_color = color
+                    st.rerun()
+                # Visual indicator (CSS dot)
+                st.markdown(f'<div style="background-color:{color}; width:15px; height:15px; border-radius:50%; margin-top:-35px; margin-left:10px; pointer-events:none;"></div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("✨ Send Sketch", use_container_width=True):
+            if canvas_result.image_data is not None:
+                # Process image
+                img_data = canvas_result.image_data
+                img = Image.fromarray(img_data.astype('uint8'), 'RGBA')
+                buffered = io.BytesIO()
+                img.save(buffered, format="PNG")
+                img_base64 = base64.b64encode(buffered.getvalue()).decode()
                 
-                # POST-PROCESSING: Remove all parentheses, brackets, and asterisks
-                ans = re.sub(r'[（(].*?[)）]', '', ans)  # Remove (content) and （content）
-                ans = re.sub(r'\[.*?\]', '', ans)  # Remove [content]
-                ans = re.sub(r'\*.*?\*', '', ans)  # Remove *content*
-                ans = ans.strip()  # Clean up extra whitespace
-                
-                st.markdown(ans)
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": ans,
-                    "avatar_uri": current_persona["avatar_uri"],
-                    "persona_name": current_persona["short_name"]
-                })
-            except Exception as e:
-                st.error(f"Error: {e}")
