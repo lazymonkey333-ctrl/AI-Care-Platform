@@ -110,7 +110,7 @@ current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
 
 # --- CSS ---
 def inject_css_for_persona(persona_color):
-    st.markdown(f"""
+    css = f"""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600&display=swap');
         
@@ -183,9 +183,8 @@ def inject_css_for_persona(persona_color):
              background-color: #ffffff !important;
         }}
 
-        /* --- SHADOW SKETCHER NESTED FIX (Take 10) --- */
+        /* --- SHADOW SKETCHER NESTED FIX (Take 11) --- */
         
-        /* 1. Canvas Border Kill (Global for this mode) */
         /* 1. Canvas Border Kill (Global for this mode) */
         iframe[title="streamlit_drawable_canvas.drawable_canvas"],
         [data-testid="stCanvas"],
@@ -199,5 +198,4 @@ def inject_css_for_persona(persona_color):
 
         /* 2. Controls Row Layout */
         /* Target the OUTER horizontal block (The one holding Palette + Buttons) */
-        /* We identify it by its specific column composition or order, roughly */
         [data-testid="stHorizontalBlock"] {{
