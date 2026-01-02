@@ -341,7 +341,7 @@ with st.sidebar:
         st.rerun()
 
 st.title("💀 Talk to Die")
-st.caption("The ByeBye Machine. • Conversations across the boundary.")
+st.caption("The ByeBye Machine. • Dialogues across the boundary.")
 
 if st.session_state.retriever is None and not st.session_state.get("dev_mode", True):
     try:
