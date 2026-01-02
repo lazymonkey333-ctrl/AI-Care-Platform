@@ -185,6 +185,34 @@ def inject_css_for_persona(persona_color):
              background-color: #ffffff !important;
         }}
 
+        /* --- SIDEBAR CONTRAST BOOST --- */
+        [data-testid="stSidebar"] .stToggle {{
+            background-color: rgba(255,255,255,0.4) !important;
+            padding: 10px !important;
+            border-radius: 12px !important;
+            border: 1px solid #E0DBC4 !important;
+            margin-bottom: 5px !important;
+        }}
+        
+        /* Toggle Track (Off) */
+        [data-testid="stSidebar"] .stToggle > div > div {{
+            background-color: #D6D2BC !important;
+        }}
+        
+        /* Toggle Track (On) */
+        [data-testid="stSidebar"] .stToggle div[aria-checked="true"] > div {{
+            background-color: {persona_color} !important;
+        }}
+
+        [data-testid="stSidebar"] button {{
+            border: 1px solid #E0DBC4 !important;
+        }}
+        
+        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{
+            font-weight: 600 !important;
+            color: #4A3B32 !important;
+        }}
+
         /* --- SHADOW SKETCHER NESTED FIX (Take 11) --- */
         
         /* 1. Canvas Border Kill (Global for this mode) */
