@@ -186,21 +186,24 @@ def inject_css_for_persona(persona_color):
         }}
 
         /* --- SIDEBAR CONTRAST BOOST --- */
+        [data-testid="stSidebar"] [data-testid="stToggle"],
         [data-testid="stSidebar"] .stToggle {{
-            background-color: #EFEDE0 !important; /* Slightly darker than sidebar */
+            background-color: #EFEDE0 !important;
             padding: 12px 15px !important;
             border-radius: 12px !important;
-            border: 2px solid #D6D2BC !important; /* Sharper border */
+            border: 2px solid #D6D2BC !important;
             margin-bottom: 8px !important;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.05) !important;
         }}
         
-        /* Toggle Track (Off) */
+        /* Toggle Track (Off) - Extra aggressive for mobile */
+        [data-testid="stSidebar"] [data-testid="stToggle"] [aria-checked="false"] > div,
         [data-testid="stSidebar"] .stToggle div[data-testid="stWidgetLabel"] + div > div {{
-            background-color: #C0BAA8 !important; /* Much darker gray for OFF state */
+            background-color: #A09A88 !important; /* Even darker for visibility */
         }}
         
         /* Toggle Track (On) */
+        [data-testid="stSidebar"] [data-testid="stToggle"] [aria-checked="true"] > div,
         [data-testid="stSidebar"] .stToggle div[aria-checked="true"] > div {{
             background-color: {persona_color} !important;
         }}
@@ -214,6 +217,18 @@ def inject_css_for_persona(persona_color):
             font-weight: 700 !important;
             color: #4A3B32 !important;
             font-size: 14px !important;
+        }}
+
+        /* --- NOTIFICATION FIX (Sight Mode Info) --- */
+        [data-testid="stNotification"] {{
+            background-color: #ffffff !important;
+            color: #4A3B32 !important;
+            border: 2px solid #EFEBE0 !important;
+            border-radius: 12px !important;
+        }}
+        [data-testid="stNotification"] p {{
+            color: #4A3B32 !important;
+            font-weight: 600 !important;
         }}
 
         /* --- SHADOW SKETCHER NESTED FIX (Take 11) --- */
