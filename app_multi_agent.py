@@ -208,10 +208,25 @@ def inject_css_for_persona(persona_color):
         }}
 
         /* 3. PALETTE BUTTONS (The Nested Block) */
-        /* Target buttons inside a Horizontal Block which is INSIDE another Horizontal Block */
+        /* Target the container of the 8 buttons */
+        [data-testid="stHorizontalBlock"] [data-testid="stHorizontalBlock"] {{
+            flex-direction: row !important;
+            flex-wrap: wrap !important; /* Allow wrapping to 4x2 if needed */
+            justify-content: flex-start !important;
+            gap: 4px !important;
+        }}
+
+        /* Prevent columns from stacking vertically on mobile */
+        [data-testid="stHorizontalBlock"] [data-testid="stHorizontalBlock"] > div {{
+            width: auto !important;
+            min-width: auto !important;
+            flex: 0 1 auto !important;
+        }}
+
+        /* Target buttons inside the nested block */
         [data-testid="stHorizontalBlock"] [data-testid="stHorizontalBlock"] button {{
-            width: 26px !important;
-            height: 26px !important;
+            width: 32px !important; /* Slightly larger for mobile tap */
+            height: 32px !important;
             min-height: 26px !important;
             padding: 0 !important;
             border-radius: 6px !important;
