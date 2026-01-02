@@ -105,6 +105,8 @@ if "sketch_mode" not in st.session_state:
     st.session_state.sketch_mode = False
 if "sketch_color" not in st.session_state:
     st.session_state.sketch_color = "#4A3B32"
+if "vision_mode" not in st.session_state:
+    st.session_state.vision_mode = False
 
 current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
 
@@ -283,9 +285,10 @@ with st.sidebar:
 
     st.markdown("---")
     
-    # Mode Toggle
+    # Mode Toggles
     st.subheader("🎨 Modes")
-    st.session_state.sketch_mode = st.toggle("Shadow Sketcher", value=st.session_state.sketch_mode, help="Communicate via drawings")
+    st.session_state.sketch_mode = st.toggle("🎨 Shadow Sketcher", value=st.session_state.sketch_mode, help="Communicate via drawings")
+    st.session_state.vision_mode = st.toggle("👁️ Sight Mode", value=st.session_state.vision_mode, help="Upload photos for analysis")
     
     dev_mode = st.checkbox("Dev Mode (Mock Embeddings)", value=True, key="dev_mode")
     os.environ["RAG_USE_RANDOM_EMBEDDINGS"] = "1" if dev_mode else "0"
@@ -304,6 +307,33 @@ if st.session_state.retriever is None and not st.session_state.get("dev_mode", T
             st.session_state.retriever = _re.get_retriever(pdfs)
     except Exception as e:
         st.error(f"RAG Init Error: {e}")
+
+# --- Sight Mode UI (Main Page) ---
+if st.session_state.vision_mode:
+    with st.container():
+        st.info("👁️ Sight Mode Active: Upload a photo to discuss with your Guardian.")
+        uploaded_photo = st.file_uploader("Choose a photo or take one", type=["png", "jpg", "jpeg"], key="main_photo_uploader")
+        
+        if uploaded_photo:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.image(uploaded_photo, caption="Selected Preview", width=300)
+            with col2:
+                st.markdown('<div style="height: 30px"></div>', unsafe_allow_html=True)
+                if st.button("📤 Analyze Photo", use_container_width=True, type="primary"):
+                    photo_data = base64.b64encode(uploaded_photo.read()).decode()
+                    photo_uri = f"data:image/jpeg;base64,{photo_data}"
+                    
+                    user_avatar = generate_avatar_data_uri(None, "#FF4B4B", is_user=True)
+                    st.session_state.messages.append({
+                        "role": "user",
+                        "content": "Please analyze this photo and tell me your thoughts.",
+                        "avatar_uri": user_avatar,
+                        "image": photo_uri
+                    })
+                    st.session_state.vision_mode = False # Auto-off after sending or keep on? Keep on but clear maybe. 
+                    st.rerun()
+    st.markdown("---")
 
 # --- Sketch Mode UI ---
 if st.session_state.sketch_mode:
@@ -444,13 +474,17 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             try:
                 # Dynamic Client Switch
                 if has_images:
-                    # Use Gemini 2.0 Vision
+                    # Use Vision Provider (OpenRouter, SiliconFlow, etc.)
+                    vision_key = os.getenv("VISION_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+                    vision_base = os.getenv("VISION_BASE_URL", "https://openrouter.ai/api/v1")
+                    vision_model = os.getenv("VISION_MODEL", "google/gemini-2.0-flash-exp:free")
+                    
                     client = openai.OpenAI(
-                        api_key=os.getenv("OPENAI_API_KEY"), 
-                        base_url="https://openrouter.ai/api/v1"
+                        api_key=vision_key, 
+                        base_url=vision_base
                     )
-                    model_id = "google/gemini-2.0-flash-exp:free"
-                    # Add referrer for OpenRouter free tier
+                    model_id = vision_model
+                    # Extra headers for OpenRouter
                     extra_headers = {
                         "HTTP-Referer": "https://streamlit.io",
                         "X-Title": "Shadow Sketcher"
@@ -458,34 +492,4 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 else:
                     # Use DeepSeek (Text Only)
                     client = openai.OpenAI(
-                        api_key=os.getenv("OPENAI_API_KEY"), 
-                        base_url="https://api.deepseek.com/v1"
-                    )
-                    model_id = "deepseek-chat"
-                    extra_headers = {}
-
-                res = client.chat.completions.create(
-                    model=model_id,
-                    messages=final_messages,
-                    temperature=0.9,
-                    max_tokens=500,
-                    extra_headers=extra_headers
-                )
-                ans = res.choices[0].message.content
-                
-                # POST-PROCESSING: Remove all parentheses, brackets, and asterisks
-                ans = re.sub(r'[（(].*?[)）]', '', ans)
-                ans = re.sub(r'\[.*?\]', '', ans)
-                ans = re.sub(r'\*.*?\*', '', ans)
-                ans = ans.strip()
-                
-                st.markdown(ans)
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": ans,
-                    "avatar_uri": current_persona["avatar_uri"],
-                    "persona_name": current_persona["short_name"]
-                })
-                # Only rerun if it was a drawing submission to clear state neatly? No, keep it standard.
-            except Exception as e:
-                st.error(f"Error: {e}")
+                        api_key=os.gete
