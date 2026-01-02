@@ -185,50 +185,53 @@ def inject_css_for_persona(persona_color):
              background-color: #ffffff !important;
         }}
 
-        /* --- SIDEBAR CONTRAST BOOST --- */
-        [data-testid="stSidebar"] [data-testid="stToggle"],
-        [data-testid="stSidebar"] .stToggle {{
+        /* --- SIDEBAR NUCLEAR CONTRAST (Mobile Force) --- */
+        /* Target the label wrapper directly, which handles the click area */
+        [data-testid="stSidebar"] label[data-testid="stWidgetLabel"] {{
+            display: block !important;
             background-color: #EFEDE0 !important;
-            padding: 12px 15px !important;
-            border-radius: 12px !important;
             border: 2px solid #D6D2BC !important;
-            margin-bottom: 8px !important;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05) !important;
-        }}
-        
-        /* Toggle Track (Off) - Extra aggressive for mobile */
-        [data-testid="stSidebar"] [data-testid="stToggle"] [aria-checked="false"] > div,
-        [data-testid="stSidebar"] .stToggle div[data-testid="stWidgetLabel"] + div > div {{
-            background-color: #A09A88 !important; /* Even darker for visibility */
-        }}
-        
-        /* Toggle Track (On) */
-        [data-testid="stSidebar"] [data-testid="stToggle"] [aria-checked="true"] > div,
-        [data-testid="stSidebar"] .stToggle div[aria-checked="true"] > div {{
-            background-color: {persona_color} !important;
-        }}
-
-        [data-testid="stSidebar"] button {{
-            border: 1.5px solid #D6D2BC !important;
-            background-color: #ffffff !important;
-        }}
-        
-        [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{
-            font-weight: 700 !important;
-            color: #4A3B32 !important;
-            font-size: 14px !important;
-        }}
-
-        /* --- NOTIFICATION FIX (Sight Mode Info) --- */
-        [data-testid="stNotification"] {{
-            background-color: #ffffff !important;
-            color: #4A3B32 !important;
-            border: 2px solid #EFEBE0 !important;
             border-radius: 12px !important;
-        }}
-        [data-testid="stNotification"] p {{
+            padding: 12px !important;
+            margin-bottom: 10px !important;
             color: #4A3B32 !important;
-            font-weight: 600 !important;
+        }}
+
+        /* The actual Toggle container usually sits NEXT to a label or inside a div */
+        /* We'll target the div that contains the switch itself */
+        [data-testid="stSidebar"] [data-testid="stToggle"] {{
+             background-color: #EFEDE0 !important;
+             border: 2px solid #D6D2BC !important;
+             border-radius: 12px !important;
+             padding: 10px !important;
+        }}
+
+        /* Force Switch Track Colors */
+        [data-testid="stSidebar"] .stToggle label + div {{
+             background-color: transparent !important;
+        }}
+        
+        /* The sliding track background */
+        [data-testid="stSidebar"] .stToggle span {{
+             background-color: #A09A88 !important; /* Forces Dark Grey default */
+        }}
+
+        /* Notification Box - Force White Background */
+        .stAlert {{
+            background-color: #ffffff !important;
+            border: 2px solid #E0DBC4 !important;
+            color: #4A3B32 !important;
+        }}
+        
+        /* Force text colors inside styling */
+        [data-testid="stSidebar"] * {{
+            color: #4A3B32 !important; /* Force dark text on sidebar */
+        }}
+        
+        /* Re-apply button specifics */
+        [data-testid="stSidebar"] button {{
+             background-color: #ffffff !important;
+             border: 2px solid #E0DBC4 !important;
         }}
 
         /* --- SHADOW SKETCHER NESTED FIX (Take 11) --- */
