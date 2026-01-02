@@ -440,7 +440,6 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                 system_prompt += f"\n\n### 参考文档：\n{context}"
             
             # --- VISION & TEXT HYBRID LOGIC ---
-            # Check if there are any images in the history being sent
             has_images = False
             final_messages = []
             
@@ -448,19 +447,17 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             final_messages.append({"role": "system", "content": system_prompt})
             
             # Message Processing
-            for m in list(st.session_state.messages)[-10:]:
+            messages_to_process = list(st.session_state.messages)[-10:]
+            for m in messages_to_process:
                 if m["role"] == "user":
                     role_reminder = f"[提醒：你是 {current_persona['short_name']}，用你的独特风格回答]\n\n"
-                    # Vision Payload Construction
                     if "image" in m:
                         has_images = True
-                        # Clean up data URI
-                        img_url = m["image"]
                         final_messages.append({
                             "role": "user",
                             "content": [
                                 {"type": "text", "text": role_reminder + m["content"]},
-                                {"type": "image_url", "image_url": {"url": img_url}}
+                                {"type": "image_url", "image_url": {"url": m["image"]}}
                             ]
                         })
                     else:
@@ -474,22 +471,39 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
             try:
                 # Dynamic Client Switch
                 if has_images:
-                    # Use Vision Provider (OpenRouter, SiliconFlow, etc.)
-                    vision_key = os.getenv("VISION_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-                    vision_base = os.getenv("VISION_BASE_URL", "https://openrouter.ai/api/v1")
-                    vision_model = os.getenv("VISION_MODEL", "google/gemini-2.0-flash-exp:free")
+                    v_key = os.getenv("VISION_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+                    v_base = os.getenv("VISION_BASE_URL", "https://openrouter.ai/api/v1")
+                    v_model = os.getenv("VISION_MODEL", "google/gemini-2.0-flash-exp:free")
                     
-                    client = openai.OpenAI(
-                        api_key=vision_key, 
-                        base_url=vision_base
-                    )
-                    model_id = vision_model
-                    # Extra headers for OpenRouter
-                    extra_headers = {
-                        "HTTP-Referer": "https://streamlit.io",
-                        "X-Title": "Shadow Sketcher"
-                    }
+                    client = openai.OpenAI(api_key=v_key, base_url=v_base)
+                    model_id = v_model
+                    extra_headers = {"HTTP-Referer": "https://streamlit.io", "X-Title": "Shadow Sketcher"}
                 else:
-                    # Use DeepSeek (Text Only)
-                    client = openai.OpenAI(
-                        api_key=os.gete
+                    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
+                    model_id = "deepseek-chat"
+                    extra_headers = {}
+
+                res = client.chat.completions.create(
+                    model=model_id,
+                    messages=final_messages,
+                    temperature=0.9,
+                    max_tokens=600,
+                    extra_headers=extra_headers
+                )
+                ans = res.choices[0].message.content
+                
+                # Cleaning output
+                ans = re.sub(r'[（(].*?[)）]', '', ans)
+                ans = re.sub(r'\[.*?\]', '', ans)
+                ans = re.sub(r'\*.*?\*', '', ans)
+                ans = ans.strip()
+                
+                st.markdown(ans)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": ans,
+                    "avatar_uri": current_persona["avatar_uri"],
+                    "persona_name": current_persona["short_name"]
+                })
+            except Exception as e:
+                st.error(f"Error: {e}")
