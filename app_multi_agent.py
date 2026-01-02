@@ -187,16 +187,17 @@ def inject_css_for_persona(persona_color):
 
         /* --- SIDEBAR CONTRAST BOOST --- */
         [data-testid="stSidebar"] .stToggle {{
-            background-color: rgba(255,255,255,0.4) !important;
-            padding: 10px !important;
+            background-color: #EFEDE0 !important; /* Slightly darker than sidebar */
+            padding: 12px 15px !important;
             border-radius: 12px !important;
-            border: 1px solid #E0DBC4 !important;
-            margin-bottom: 5px !important;
+            border: 2px solid #D6D2BC !important; /* Sharper border */
+            margin-bottom: 8px !important;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05) !important;
         }}
         
         /* Toggle Track (Off) */
-        [data-testid="stSidebar"] .stToggle > div > div {{
-            background-color: #D6D2BC !important;
+        [data-testid="stSidebar"] .stToggle div[data-testid="stWidgetLabel"] + div > div {{
+            background-color: #C0BAA8 !important; /* Much darker gray for OFF state */
         }}
         
         /* Toggle Track (On) */
@@ -205,12 +206,14 @@ def inject_css_for_persona(persona_color):
         }}
 
         [data-testid="stSidebar"] button {{
-            border: 1px solid #E0DBC4 !important;
+            border: 1.5px solid #D6D2BC !important;
+            background-color: #ffffff !important;
         }}
         
         [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{
-            font-weight: 600 !important;
+            font-weight: 700 !important;
             color: #4A3B32 !important;
+            font-size: 14px !important;
         }}
 
         /* --- SHADOW SKETCHER NESTED FIX (Take 11) --- */
