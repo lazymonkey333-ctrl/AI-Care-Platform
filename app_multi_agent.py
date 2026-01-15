@@ -249,12 +249,12 @@ def inject_css_for_persona(persona_color):
 
         /* 2. Controls Row Layout */
         /* Target the OUTER horizontal block (The one holding Palette + Buttons) */
-        [data-testid="stHorizontalBlock"] {{
+        [data-testid="stHorizontalBlock"] {
             align-items: flex-end !important;
-            width: 1000px !important; /* Match Canvas Width (Resized) */
+            width: 100% !important; 
             max-width: 100% !important;
             margin: 0 auto !important;
-        }}
+        }
 
         /* 3. PALETTE BUTTONS (The Nested Block) */
         /* Target the container of the 8 buttons */
@@ -306,9 +306,14 @@ def inject_css_for_persona(persona_color):
         [data-testid="stHorizontalBlock"] [data-testid="stHorizontalBlock"] > div:nth-child(8) button {{ background-color: #FF4B4B !important; }}
 
         /* 4. ACTION BUTTONS (Clear / Send) */
-        button[kind="secondary"], button[kind="primary"] {{
+        button[kind="secondary"], button[kind="primary"] {
              /* Base styles handled by earlier block */
-        }}
+        }
+        
+        /* 5. RESPONSIVE CANVAS FIX */
+        [data-testid="stCanvas"] {
+            width: 100% !important;
+        }
         </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -401,19 +406,24 @@ if st.session_state.vision_mode:
 
 # --- Sketch Mode UI ---
 if st.session_state.sketch_mode:
-    # 1. Canvas (Width 1000px - Fixed for Desktop Wide)
-    canvas_result = st_canvas(
-        fill_color="rgba(255, 165, 0, 0.3)",
-        stroke_width=3,
-        stroke_color=st.session_state.sketch_color,
-        background_color="#ffffff",
-        update_streamlit=True,
-        height=350,  # Slightly taller
-        width=1000,  # Resized to fill more space
-        drawing_mode="freedraw",
-        display_toolbar=False,
-        key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
-    )
+    # 1. Canvas (Responsive with 4:3 Ratio)
+    # Streamlit doesn't give window width easily without JS, using a common container-width-aware approach
+    # We'll use a default width that fits most but allow it to scale
+    
+    canvas_container = st.container()
+    with canvas_container:
+        canvas_result = st_canvas(
+            fill_color="rgba(255, 165, 0, 0.3)",
+            stroke_width=3,
+            stroke_color=st.session_state.sketch_color,
+            background_color="#ffffff",
+            update_streamlit=True,
+            height=450,    # Adjusted for roughly 4:3 relative to standard wide content area
+            use_container_width=True, # This makes it fit the column width
+            drawing_mode="freedraw",
+            display_toolbar=False,
+            key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
+        )
     
     # 2. Controls Row
     # Column ratios: 6 for palette (needs space), 1 for spacer/clear, 1 for send
