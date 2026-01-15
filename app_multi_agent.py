@@ -15,7 +15,7 @@ st.set_page_config(
     page_title="Talk to Die", 
     page_icon="💀",
     layout="wide", 
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # --- PERSONA CONFIG (ROLE-REINFORCED) ---
@@ -99,16 +99,26 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "selected_persona_key" not in st.session_state:
     st.session_state.selected_persona_key = "Dr. Vein (Medical Expert)"
-if "retriever" not in st.session_state:
-    st.session_state.retriever = None
-if "sketch_mode" not in st.session_state:
-    st.session_state.sketch_mode = False
-if "sketch_color" not in st.session_state:
-    st.session_state.sketch_color = "#4A3B32"
 if "vision_mode" not in st.session_state:
     st.session_state.vision_mode = False
+if "user_identity" not in st.session_state:
+    st.session_state.user_identity = ""
+if "user_name" not in st.session_state:
+    st.session_state.user_name = "You"
+if "group_chat_mode" not in st.session_state:
+    st.session_state.group_chat_mode = False
+if "selected_personas" not in st.session_state:
+    st.session_state.selected_personas = ["Dr. Vein (Medical Expert)"]
 
-current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
+# Handle persona selection for simple or group mode
+if not st.session_state.group_chat_mode:
+    current_persona = PERSONA_CONFIG[st.session_state.selected_persona_key]
+else:
+    # In group mode, current_persona defaults to the first selected one for simple UI tasks (like CSS color)
+    if st.session_state.selected_personas:
+        current_persona = PERSONA_CONFIG[st.session_state.selected_personas[0]]
+    else:
+        current_persona = PERSONA_CONFIG["Dr. Vein (Medical Expert)"]
 
 # --- CSS ---
 def inject_css_for_persona(persona_color):
@@ -331,21 +341,34 @@ for key in PERSONA_CONFIG:
     PERSONA_CONFIG[key]["avatar_uri"] = generate_avatar_data_uri(PERSONA_CONFIG[key]["icon"], PERSONA_CONFIG[key]["color"])
 
 # --- Sidebar ---
-with st.sidebar:
-    st.header("🧠 Guardians")
-    st.caption("Choose your guide:")
+    st.subheader("👤 Your Identity")
+    st.session_state.user_name = st.text_input("Name", value=st.session_state.user_name, help="How should they call you?")
+    st.session_state.user_identity = st.text_area("Who are you?", value=st.session_state.user_identity, placeholder="e.g., A patient seeking truth...", help="This helps guardians tailor their answers.")
     
-    for p_key in PERSONA_CONFIG.keys():
-        is_active = (st.session_state.selected_persona_key == p_key)
-        
-        if st.button(
-            f"{PERSONA_CONFIG[p_key]['icon']}   {p_key}", 
-            key=f"btn_{p_key.replace(' ', '_')}", 
-            type="primary" if is_active else "secondary",
-            use_container_width=True
-        ):
-            st.session_state.selected_persona_key = p_key
-            st.rerun()
+    st.markdown("---")
+    
+    st.subheader("👥 Chat Mode")
+    st.session_state.group_chat_mode = st.toggle("Multi-Agent Group Chat", value=st.session_state.group_chat_mode, help="Multiple guardians respond to you together.")
+    
+    if not st.session_state.group_chat_mode:
+        st.caption("Choose your guide:")
+        for p_key in PERSONA_CONFIG.keys():
+            is_active = (st.session_state.selected_persona_key == p_key)
+            if st.button(
+                f"{PERSONA_CONFIG[p_key]['icon']}   {p_key}", 
+                key=f"btn_{p_key.replace(' ', '_')}", 
+                type="primary" if is_active else "secondary",
+                use_container_width=True
+            ):
+                st.session_state.selected_persona_key = p_key
+                st.rerun()
+    else:
+        st.caption("Select members for the session:")
+        st.session_state.selected_personas = st.multiselect(
+            "Guardians in the room:",
+            options=list(PERSONA_CONFIG.keys()),
+            default=st.session_state.selected_personas
+        )
 
     st.markdown("---")
     
@@ -487,87 +510,114 @@ if prompt := st.chat_input("Speak to the shadow..."):
 if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
     last_msg = st.session_state.messages[-1]
     
-    with st.chat_message("assistant", avatar=current_persona["avatar_uri"]):
-        st.markdown(f"<div class='persona-name-tag' style='color:{current_persona['color']}'>{current_persona['short_name']}</div>", unsafe_allow_html=True)
-        
-        with st.spinner(f"{current_persona['short_name']} is here..."):
-            context = ""
-            if st.session_state.retriever:
-                try:
-                    docs = st.session_state.retriever.get_relevant_documents(last_msg["content"])
-                    context = "\n".join([d.page_content for d in docs[:3]])
-                except Exception:
-                    pass
+    # Determine responders
+    if st.session_state.group_chat_mode:
+        responders = [PERSONA_CONFIG[pk] for pk in st.session_state.selected_personas]
+    else:
+        responders = [current_persona]
+
+    if not responders:
+        st.warning("Please select at least one Guardian.")
+        st.stop()
+
+    for responder in responders:
+        with st.chat_message("assistant", avatar=responder["avatar_uri"]):
+            st.markdown(f"<div class='persona-name-tag' style='color:{responder['color']}'>{responder['short_name']}</div>", unsafe_allow_html=True)
             
-            system_prompt = current_persona['prompt']
-            if context:
-                system_prompt += f"\n\n### 参考文档：\n{context}"
-            
-            # --- VISION & TEXT HYBRID LOGIC ---
-            has_images = False
-            final_messages = []
-            
-            # System Prompt
-            final_messages.append({"role": "system", "content": system_prompt})
-            
-            # Message Processing
-            messages_to_process = list(st.session_state.messages)[-10:]
-            for m in messages_to_process:
-                if m["role"] == "user":
-                    role_reminder = f"[提醒：你是 {current_persona['short_name']}，用你的独特风格回答]\n\n"
-                    if "image" in m:
-                        has_images = True
-                        final_messages.append({
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": role_reminder + m["content"]},
-                                {"type": "image_url", "image_url": {"url": m["image"]}}
-                            ]
-                        })
+            with st.spinner(f"{responder['short_name']} is here..."):
+                context = ""
+                if st.session_state.retriever:
+                    try:
+                        docs = st.session_state.retriever.get_relevant_documents(last_msg["content"])
+                        context = "\n".join([d.page_content for d in docs[:3]])
+                    except Exception:
+                        pass
+                
+                # Dynamic System Prompt with User Info
+                user_info_vibe = f"用户姓名是 {st.session_state.user_name}。"
+                if st.session_state.user_identity:
+                    user_info_vibe += f"用户的身份/背景是：{st.session_state.user_identity}。请根据此信息在对话中体现针对性和关怀。"
+                
+                system_prompt = f"{responder['prompt']}\n\n### 当前对话背景：\n{user_info_vibe}"
+                
+                if context:
+                    system_prompt += f"\n\n### 参考文档：\n{context}"
+                
+                if st.session_state.group_chat_mode:
+                    system_prompt += f"\n\n这是一个多人会话，其他角色包括：{[r['short_name'] for r in responders if r != responder]}。请在保持自己独特风格的同时，可以参考或延续其他角色的见解。"
+
+                # --- VISION & TEXT HYBRID LOGIC ---
+                has_images = False
+                final_messages = []
+                
+                # System Prompt
+                final_messages.append({"role": "system", "content": system_prompt})
+                
+                # Message Processing
+                messages_to_process = list(st.session_state.messages)[-15:] # Take more history for group chat context
+                for m in messages_to_process:
+                    if m["role"] == "user":
+                        role_reminder = f"[提醒：你是 {responder['short_name']}] "
+                        if "image" in m:
+                            has_images = True
+                            final_messages.append({
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": role_reminder + m["content"]},
+                                    {"type": "image_url", "image_url": {"url": m["image"]}}
+                                ]
+                            })
+                        else:
+                            final_messages.append({
+                                "role": "user", 
+                                "content": role_reminder + m["content"]
+                            })
                     else:
+                        # For assistant messages, include who said what
+                        p_tag = f"[{m.get('persona_name', 'System')}] "
                         final_messages.append({
-                            "role": "user", 
-                            "content": role_reminder + m["content"]
+                            "role": "assistant",
+                            "content": p_tag + m["content"]
                         })
-                else:
-                    final_messages.append(m)
 
-            try:
-                # Dynamic Client Switch
-                if has_images:
-                    v_key = os.getenv("VISION_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-                    v_base = os.getenv("VISION_BASE_URL", "https://openrouter.ai/api/v1")
-                    v_model = os.getenv("VISION_MODEL", "google/gemini-2.0-flash-exp:free")
+                try:
+                    # Dynamic Client Switch
+                    if has_images:
+                        v_key = os.getenv("VISION_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+                        v_base = os.getenv("VISION_BASE_URL", "https://openrouter.ai/api/v1")
+                        v_model = os.getenv("VISION_MODEL", "google/gemini-2.0-flash-exp:free")
+                        
+                        client = openai.OpenAI(api_key=v_key, base_url=v_base)
+                        model_id = v_model
+                        extra_headers = {"HTTP-Referer": "https://streamlit.io", "X-Title": "Shadow Sketcher"}
+                    else:
+                        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
+                        model_id = "deepseek-chat"
+                        extra_headers = {}
+
+                    res = client.chat.completions.create(
+                        model=model_id,
+                        messages=final_messages,
+                        temperature=0.9,
+                        max_tokens=600,
+                        extra_headers=extra_headers
+                    )
+                    ans = res.choices[0].message.content
                     
-                    client = openai.OpenAI(api_key=v_key, base_url=v_base)
-                    model_id = v_model
-                    extra_headers = {"HTTP-Referer": "https://streamlit.io", "X-Title": "Shadow Sketcher"}
-                else:
-                    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com/v1")
-                    model_id = "deepseek-chat"
-                    extra_headers = {}
-
-                res = client.chat.completions.create(
-                    model=model_id,
-                    messages=final_messages,
-                    temperature=0.9,
-                    max_tokens=600,
-                    extra_headers=extra_headers
-                )
-                ans = res.choices[0].message.content
-                
-                # Cleaning output
-                ans = re.sub(r'[（(].*?[)）]', '', ans)
-                ans = re.sub(r'\[.*?\]', '', ans)
-                ans = re.sub(r'\*.*?\*', '', ans)
-                ans = ans.strip()
-                
-                st.markdown(ans)
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": ans,
-                    "avatar_uri": current_persona["avatar_uri"],
-                    "persona_name": current_persona["short_name"]
-                })
-            except Exception as e:
-                st.error(f"Error: {e}")
+                    # Cleaning output (only removing the role tag if model added it back)
+                    ans = re.sub(fr'^\[{responder["short_name"]}\]\s*', '', ans)
+                    ans = re.sub(r'[（(].*?[)）]', '', ans)
+                    ans = re.sub(r'\[.*?\]', '', ans)
+                    ans = re.sub(r'\*.*?\*', '', ans)
+                    ans = ans.strip()
+                    
+                    st.markdown(ans)
+                    new_msg = {
+                        "role": "assistant",
+                        "content": ans,
+                        "avatar_uri": responder["avatar_uri"],
+                        "persona_name": responder["short_name"]
+                    }
+                    st.session_state.messages.append(new_msg)
+                except Exception as e:
+                    st.error(f"Error from {responder['short_name']}: {e}")
