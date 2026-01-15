@@ -249,12 +249,12 @@ def inject_css_for_persona(persona_color):
 
         /* 2. Controls Row Layout */
         /* Target the OUTER horizontal block (The one holding Palette + Buttons) */
-        [data-testid="stHorizontalBlock"] {
+        [data-testid="stHorizontalBlock"] {{
             align-items: flex-end !important;
             width: 100% !important; 
             max-width: 100% !important;
             margin: 0 auto !important;
-        }
+        }}
 
         /* 3. PALETTE BUTTONS (The Nested Block) */
         /* Target the container of the 8 buttons */
@@ -306,14 +306,14 @@ def inject_css_for_persona(persona_color):
         [data-testid="stHorizontalBlock"] [data-testid="stHorizontalBlock"] > div:nth-child(8) button {{ background-color: #FF4B4B !important; }}
 
         /* 4. ACTION BUTTONS (Clear / Send) */
-        button[kind="secondary"], button[kind="primary"] {
+        button[kind="secondary"], button[kind="primary"] {{
              /* Base styles handled by earlier block */
-        }
+        }}
         
         /* 5. RESPONSIVE CANVAS FIX */
-        [data-testid="stCanvas"] {
+        [data-testid="stCanvas"] {{
             width: 100% !important;
-        }
+        }}
         </style>
     """
     st.markdown(css, unsafe_allow_html=True)
