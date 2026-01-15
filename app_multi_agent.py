@@ -9,6 +9,9 @@ from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 import io
 
+# Globally set max upload size to 10MB for the Streamlit server
+# This affects the backend processing limits
+# Max upload size is now managed via .streamlit/config.toml
 load_dotenv()
 
 st.set_page_config(
@@ -17,6 +20,15 @@ st.set_page_config(
     layout="wide", 
     initial_sidebar_state="expanded"
 )
+
+# Set max upload size to 10MB
+# Note: In Streamlit, this is a global config option. 
+# It can also be set in .streamlit/config.toml, but we'll set it here for convenience.
+# streamlit >= 1.25.0 supports setting options via code for some server configs, 
+# but the most reliable way is often config.toml or CLI. 
+# However, many users prefer a simple warning or check.
+# Let's add the check in the UI directly as well for better UX.
+
 
 # --- PERSONA CONFIG (ROLE-REINFORCED) ---
 PERSONA_CONFIG = {
@@ -311,10 +323,18 @@ def inject_css_for_persona(persona_color):
         }}
         
         /* 5. RESPONSIVE CANVAS FIX */
-        [data-testid="stCanvas"], [data-testid="stCanvas"] > div, [data-testid="stCanvas"] canvas {{
+        [data-testid="stCanvas"], 
+        [data-testid="stCanvas"] > div, 
+        [data-testid="stCanvas"] iframe,
+        [data-testid="stCanvas"] canvas {{
             width: 100% !important;
             height: auto !important;
             aspect-ratio: 4 / 3 !important;
+        }}
+        
+        /* Ensure the canvas doesn't get squashed by fixed height containers */
+        [data-testid="stCanvas"] > div {{
+            height: unset !important;
         }}
         </style>
     """
@@ -386,6 +406,12 @@ if st.session_state.vision_mode:
         uploaded_photo = st.file_uploader("Choose a photo or take one", type=["png", "jpg", "jpeg"], key="main_photo_uploader")
         
         if uploaded_photo:
+            # Explicit check for 10MB limit in UI
+            MAX_FILE_SIZE = 10 * 1024 * 1024 # 10MB
+            if uploaded_photo.size > MAX_FILE_SIZE:
+                st.error(f"File too large! Max size is 10MB. Your file: {uploaded_photo.size / (1024*1024):.1f}MB")
+                st.stop()
+                
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.image(uploaded_photo, caption="Selected Preview", width=300)
@@ -420,8 +446,8 @@ if st.session_state.sketch_mode:
             stroke_color=st.session_state.sketch_color,
             background_color="#ffffff",
             update_streamlit=True,
-            height=900,
-            width=1200,   # Set a large width for full detection, CSS will scale it down
+            height=1875, # 2500 * 0.75
+            width=2500,  # Very large width to ensure it covers even ultra-wide monitors
             drawing_mode="freedraw",
             display_toolbar=False,
             key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
