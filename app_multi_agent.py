@@ -311,8 +311,10 @@ def inject_css_for_persona(persona_color):
         }}
         
         /* 5. RESPONSIVE CANVAS FIX */
-        [data-testid="stCanvas"] {{
+        [data-testid="stCanvas"], [data-testid="stCanvas"] > div, [data-testid="stCanvas"] canvas {{
             width: 100% !important;
+            height: auto !important;
+            aspect-ratio: 4 / 3 !important;
         }}
         </style>
     """
@@ -418,8 +420,8 @@ if st.session_state.sketch_mode:
             stroke_color=st.session_state.sketch_color,
             background_color="#ffffff",
             update_streamlit=True,
-            height=450,    # Adjusted for roughly 4:3 relative to standard wide content area
-            use_container_width=True, # This makes it fit the column width
+            height=900,
+            width=1200,   # Set a large width for full detection, CSS will scale it down
             drawing_mode="freedraw",
             display_toolbar=False,
             key=f"shadow_sketcher_{st.session_state.get('shadow_sketcher_version', 0)}",
